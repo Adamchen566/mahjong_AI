@@ -1,14 +1,17 @@
+from typing import Optional, Tuple, List
+from collections import Counter, defaultdict
+
 from core.player import WindPosition
 from core.tiles import Tile
-from typing import Optional, Tuple
-from collections import Counter, defaultdict
+from core.rules import can_win_standard
+
 
 class SimpleAI:
     def __init__(self, position: WindPosition, board):
         self.position = position
         self.board = board
 
-    def select_three_exchange(self) -> list[Tile]:
+    def select_three_exchange(self) -> List[Tile]:
         """选择三张同花色的牌用于换三张，优先选择 >=3 且数量最少的花色"""
         hand = self.board.get_hand(self.position)
         suits = defaultdict(list)
@@ -16,11 +19,9 @@ class SimpleAI:
             suit = tile.suit.value
             if suit in ("man", "pin", "sou"):
                 suits[suit].append(tile)
-        # 筛选出至少3张的花色
         valid = {s: tiles for s, tiles in suits.items() if len(tiles) >= 3}
         if not valid:
             return []
-        # 选择最少牌数的花色
         chosen_suit = min(valid.keys(), key=lambda s: len(valid[s]))
         return valid[chosen_suit][:3]
 
@@ -28,16 +29,16 @@ class SimpleAI:
         """默认选择当前手牌中数量最少的花色作为定缺"""
         hand = self.board.get_hand(self.position)
         counts = Counter(tile.suit.value for tile in hand)
-        # 从万(man)、筒(pin)、条(sou)中选数量最少的
         return min(("man", "pin", "sou"), key=lambda s: counts.get(s, 0))
 
     def choose_discard(self) -> Tile:
-        # 简单策略：打出手中最少的那张牌
+        """简单策略：打出手中出现次数最少的那张牌"""
         hand = self.board.get_hand(self.position)
         counter = Counter(hand)
         return min(counter, key=lambda t: (counter[t], str(t)))
 
     def decide_meld_action(self, tile: Tile) -> Optional[str]:
+        """决定是否碰或杠"""
         hand = self.board.get_hand(self.position)
         count = hand.count(tile)
         if count >= 3:
@@ -47,71 +48,44 @@ class SimpleAI:
         return None
 
     def decide_concealed_or_added_kan(self) -> Tuple[Optional[str], Optional[Tile]]:
+        """决定是否暗杠或加杠"""
         hand = self.board.get_hand(self.position)
         melds = self.board.get_melds(self.position)
         counter = Counter(hand)
 
-        for tile, count in counter.items():
-            if count == 4:
+        # 暗杠
+        for tile, cnt in counter.items():
+            if cnt == 4:
                 return 'ankan', tile
-
+        # 加杠
         for meld in melds:
-            if len(meld) == 3 and all(tile == meld[0] for tile in meld):
+            if len(meld) == 3 and all(t == meld[0] for t in meld):
                 return 'chakan', meld[0]
 
         return None, None
 
     def can_win(self) -> bool:
-        hand = self.board.get_hand(self.position)
-        return self.is_winning_hand(hand)
+        """
+        杠后补花或其他不带额外牌的场合判胡，
+        手牌 + 副露 区 + None
+        """
+        return can_win_standard(
+            self.board.get_hand(self.position),
+            self.board.get_melds(self.position),
+            None
+        )
 
     def can_win_on_tile(self, tile: Tile) -> bool:
-        hand = self.board.get_hand(self.position) + [tile]
-        return self.is_winning_hand(hand)
+        """
+        自摸或荣和判胡，
+        手牌 + 副露 区 + 这张牌
+        """
+        return can_win_standard(
+            self.board.get_hand(self.position),
+            self.board.get_melds(self.position),
+            tile
+        )
 
     def decide_win(self, tile: Optional[Tile] = None) -> bool:
-        # 简单策略：总是胡
+        """简单策略：如果能胡，总是胡"""
         return True
-
-    def is_winning_hand(self, tiles: list[Tile]) -> bool:
-        # 简化版胡牌判定，仅检查 4 面子 + 1 对子的基本形式
-        if len(tiles) % 3 != 2:
-            return False
-
-        from itertools import combinations
-        tiles = sorted(tiles)
-        counter = Counter(tiles)
-
-        pairs = [t for t in counter if counter[t] >= 2]
-        for pair in pairs:
-            remaining = tiles.copy()
-            remaining.remove(pair)
-            remaining.remove(pair)
-            if self.can_form_melds(remaining):
-                return True
-        return False
-
-    def can_form_melds(self, tiles: list[Tile]) -> bool:
-        if not tiles:
-            return True
-        tiles = sorted(tiles)
-        first = tiles[0]
-        count = tiles.count(first)
-
-        # 刻子（三张一样）
-        if count >= 3:
-            for _ in range(3):
-                tiles.remove(first)
-            return self.can_form_melds(tiles)
-
-        # 顺子（仅适用于万/筒/条）
-        if first.suit.value in {"man", "pin", "sou"} and isinstance(first.value, int):
-            second = Tile(first.suit, first.value + 1)
-            third = Tile(first.suit, first.value + 2)
-            if second in tiles and third in tiles:
-                tiles.remove(first)
-                tiles.remove(second)
-                tiles.remove(third)
-                return self.can_form_melds(tiles)
-
-        return False

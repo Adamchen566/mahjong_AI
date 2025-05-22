@@ -1,7 +1,7 @@
 from core.board import MahjongBoard
 from core.player import WindPosition
 from agents.simple import SimpleAI
-from display import color_tile, print_full_state
+from core.display import color_tile, print_full_state
 
 def check_pon_or_kan(board, last_tile, last_pos, agents):
     for i in range(1, 4):

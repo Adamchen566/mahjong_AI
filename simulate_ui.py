@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import Canvas, PhotoImage
 from core.board import MahjongBoard
 from core.player import WindPosition
-from agents.koutsu import KoutsuAI, can_win_koutsu_style
-from display import format_pos_name
-import os
+from core.display import format_pos_name
+from core.rules import *
+from agents.koutsu import KoutsuAI
 
 class MahjongStyledGUI:
     def __init__(self, root):
@@ -84,7 +84,7 @@ class MahjongStyledGUI:
             hand = self.board.get_hand(current_pos)
             melds = self.board.get_melds(current_pos)
 
-            if can_win_koutsu_style(hand, melds):
+            if can_win_standard(hand, melds):
                 if self.agents[current_pos].decide_win():
                     finished.add(current_pos)
                     if len(finished) >= 3:

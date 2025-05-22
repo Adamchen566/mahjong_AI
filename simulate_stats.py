@@ -1,7 +1,8 @@
 from collections import defaultdict
 from game_chuan import WindPosition, MahjongBoard
-from agents.koutsu import KoutsuAI, can_win_koutsu_style
-from display import format_pos_name
+from agents.koutsu import KoutsuAI
+from core.rules import *
+from core.display import format_pos_name
 import sys
 import contextlib
 
@@ -53,7 +54,7 @@ def simulate_game():
 
         hand = board.get_hand(current_pos)
         melds = board.get_melds(current_pos)
-        if can_win_koutsu_style(hand, melds):
+        if can_win_standard(hand, melds):
             if agents[current_pos].decide_win():
                 finished.add(current_pos)
                 continue

@@ -72,11 +72,13 @@ class SimpleAI:
     def is_winning_hand(self, tiles: list[Tile]) -> bool:
         # 简化版胡牌判定，仅检查 4 面子 + 1 对子的基本形式
         if len(tiles) % 3 != 2:
+            print("手牌数量不符合胡牌条件")
             return False
 
         from itertools import combinations
         tiles.sort()
         counter = Counter(tiles)
+        print(f"Counter: {counter}")
 
         pairs = [t for t in counter if counter[t] >= 2]
         for pair in pairs:

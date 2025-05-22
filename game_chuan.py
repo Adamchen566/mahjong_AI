@@ -224,8 +224,10 @@ def main():
 
             hand = board.get_hand(current_pos)
             melds = board.get_melds(current_pos)
-            if can_win_koutsu_style(hand, melds):
-                if agents[current_pos].decide_win():
+            if agents[current_pos].can_win_on_tile(drawn):
+                if agents[current_pos].decide_win(drawn):
+                    board.add_meld(current_pos, [drawn])
+                    finished_players.add(current_pos)
                     print(f"🎉🎉🎉 {format_pos_name(current_pos)} 杠后自摸胡了！ 🎉🎉🎉")
                     board.add_meld(current_pos, [drawn])
                     finished_players.add(current_pos)
@@ -236,7 +238,7 @@ def main():
                     last_round_starter = current_pos
                     continue
 
-        if can_win_koutsu_style(hand, melds):
+        if agents[current_pos].can_win_on_tile(drawn):
             if agents[current_pos].decide_win(drawn):
                 print(f"🎉🎉🎉 {format_pos_name(current_pos)} 自摸胡了！ 🎉🎉🎉")
                 board.add_meld(current_pos, [drawn])
@@ -307,6 +309,7 @@ def main():
         discards = board.get_discards(pos)
         if discards:
             colored_discards = ' '.join([color_tile(t) for t in discards])
+            board.sort_hand(pos)
             print(f"{format_pos_name(pos)} 弃牌: {colored_discards}")
         else:
             print(f"{format_pos_name(pos)} 弃牌: 无")

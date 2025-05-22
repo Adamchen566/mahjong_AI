@@ -1,12 +1,30 @@
 from core.player import WindPosition
 from core.tiles import Tile
 from typing import Optional, Tuple
-from collections import Counter
+from collections import Counter, defaultdict
 
 class SimpleAI:
     def __init__(self, position: WindPosition, board):
         self.position = position
         self.board = board
+
+    def select_three_exchange(self) -> list[Tile]:
+        """选择三张同花色的牌用于换三张，优先选择 >=3 且数量最少的花色"""
+        hand = self.board.get_hand(self.position)
+        suits = defaultdict(list)
+        for tile in hand:
+            suit = tile.suit.value
+            if suit in ("man", "pin", "sou"):
+                suits[suit].append(tile)
+        # 筛选出至少3张的花色
+        valid = {s: tiles for s, tiles in suits.items() if len(tiles) >= 3}
+        if not valid:
+            # 若无任何花色满足条件，返回空列表
+            return []
+        # 选择最少牌数的花色
+        chosen_suit = min(valid.keys(), key=lambda s: len(valid[s]))
+        return valid[chosen_suit][:3]
+
 
     def choose_discard(self) -> Tile:
         # 简单策略：打出手中最少的那张牌
@@ -95,65 +113,4 @@ class SimpleAI:
             except Exception:
                 pass
 
-        return False
-
-class KoutsuAI(SimpleAI):
-    def choose_discard(self) -> Tile:
-        hand = self.board.get_hand(self.position)
-        visible = self.board.get_all_discarded_tiles() + self.board.get_all_meld_tiles()
-        visible_counter = Counter(visible)
-
-        hand_counter = Counter(hand)
-        score = {}
-
-        for tile in hand:
-            remaining = 4 - visible_counter[tile] - hand_counter[tile]
-            # 若是对子或刻子，则保留优先级更高（避免打掉将或组成刻子的牌）
-            is_pair = hand_counter[tile] >= 2
-            is_triplet = hand_counter[tile] >= 3
-            penalty = 10 if is_triplet else (5 if is_pair else 0)
-            score[tile] = remaining - penalty
-
-        # 丢掉最难组成刻子的牌（剩余最少、且非对子）
-        return min(hand, key=lambda t: (score[t], str(t)))
-
-    def decide_meld_action(self, tile: Tile) -> Optional[str]:
-        hand = self.board.get_hand(self.position)
-        count = hand.count(tile)
-        if count >= 3:
-            return 'kan'
-        elif count >= 2:
-            return 'pon'
-        return None
-
-    def decide_win(self, tile: Optional[Tile] = None) -> bool:
-        if tile:
-            hand = self.board.get_hand(self.position) + [tile]
-        else:
-            hand = self.board.get_hand(self.position)
-        return self.is_winning_hand(hand)
-
-    def is_winning_hand(self, tiles: list[Tile]) -> bool:
-        if len(tiles) != 14:
-            return False
-        tiles.sort()
-        counter = Counter(tiles)
-
-        # 只允许 4 个刻子 + 1 对
-        pairs = [t for t in counter if counter[t] >= 2]
-        for pair in pairs:
-            remaining = tiles.copy()
-            remaining.remove(pair)
-            remaining.remove(pair)
-
-            triplets = 0
-            i = 0
-            while i <= len(remaining) - 3:
-                if remaining[i] == remaining[i+1] == remaining[i+2]:
-                    triplets += 1
-                    del remaining[i:i+3]
-                else:
-                    i += 1
-            if triplets == 4 and not remaining:
-                return True
         return False

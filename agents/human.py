@@ -1,8 +1,33 @@
 from display import color_tile
-class HumanAgent:
+from agents.simple import SimpleAI
+from core.tiles import Tile
+
+class HumanAgent(SimpleAI):
     def __init__(self, pos, board):
         self.pos = pos
         self.board = board
+
+    def select_three_exchange(self) -> list[Tile]:
+        """让玩家手动输入三张要换出的牌"""
+        hand = self.board.get_hand(self.pos)
+        # 显示当前手牌
+        colored = ' '.join(color_tile(t) for t in hand)
+        print("你的手牌: " + colored)
+        while True:
+            inp = input("请输入三张要换出的牌（格式如 man3 pin5 sou7，用空格分隔）: ").strip()
+            parts = inp.split()
+            if len(parts) != 3:
+                print("❌ 格式错误，请输入三张牌，用空格分隔")
+                continue
+            try:
+                tiles = []
+                for code in parts:
+                    # 找到对应 Tile 对象
+                    tile = next(t for t in hand if str(t) == code)
+                    tiles.append(tile)
+                return tiles
+            except StopIteration:
+                print("❌ 输入的牌不在手牌中，请重新输入")
 
     def choose_discard(self, drawn_tile=None):
         hand = self.board.get_hand(self.pos)
@@ -11,7 +36,7 @@ class HumanAgent:
         for t in tiles:
             ct = color_tile(t)
             if drawn_tile and t == drawn_tile:
-                ct = f"\033[1;107m{ct}\033[0m"  # 高亮背景白
+                ct = f"\033[1;107m{ct}\033[0m"
             colored.append(ct)
         print("你的手牌: " + ' '.join(colored))
 
@@ -21,8 +46,6 @@ class HumanAgent:
                 if str(tile) == discard_input:
                     return tile
             print("❌ 输入无效，请重新输入。")
-
-
 
     def decide_win(self, tile=None):
         choice = input(f"是否胡{'（荣和）' if tile else '（自摸）'}？(y/n): ").strip().lower()
@@ -45,7 +68,7 @@ class HumanAgent:
         hand = self.board.get_hand(self.pos)
         melds = self.board.get_melds(self.pos)
 
-        # 🔍 检查暗杠机会
+        # 检查暗杠
         counter = {}
         for tile in hand:
             counter[str(tile)] = counter.get(str(tile), 0) + 1
@@ -56,7 +79,7 @@ class HumanAgent:
                     tile = next(t for t in hand if str(t) == tile_str)
                     return "ankan", tile
 
-        # 🔍 检查加杠机会
+        # 检查加杠
         for meld in melds:
             if len(meld) == 3 and all(tile == meld[0] for tile in meld):
                 tile = meld[0]
@@ -65,5 +88,4 @@ class HumanAgent:
                     if choice == 'y':
                         return "chakan", tile
 
-        # 没有可选项时不询问
         return None, None

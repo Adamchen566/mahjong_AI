@@ -1,13 +1,32 @@
 from core.board import MahjongBoard
 from core.player import WindPosition
+from core.board import Tile
 from agents.human import HumanAgent
 from agents.simple import SimpleAI
+import random
+from collections import defaultdict
 from agents.koutsu import KoutsuAI, can_win_koutsu_style
 from display import print_full_state, format_pos_name, color_tile
 
 focus_pos = WindPosition.EAST
 
 def check_pon_or_kan(board, last_tile, last_pos, agents):
+    """
+    检查当前局面是否有人能胡牌或碰杠。
+
+    Args:
+        board (Board): 游戏板对象。
+        last_tile (Tile): 上一张打出的牌。
+        last_pos (Position): 上一张牌的打出者位置。
+        agents (List[Agent]): 所有玩家的代理列表。
+
+    Returns:
+        Tuple[Union[str, bool], Position, Tile]: 返回一个元组，包含三个元素。
+            - 第一个元素为 "win" 表示有人胡牌，或 "meld" 表示有人碰杠，或 False 表示无人胡牌且无人碰杠。
+            - 第二个元素为胡牌或碰杠玩家的位置。
+            - 第三个元素为胡牌或碰杠所用的牌。
+
+    """
     for offset in range(1, 4):  # 逆时针三家
         responder_pos = WindPosition((last_pos.value - offset) % 4)
         agent = agents[responder_pos]
@@ -60,6 +79,63 @@ def check_pon_or_kan(board, last_tile, last_pos, agents):
     return False, last_pos, last_tile
 
 
+def determine_exchange_direction():
+    """根据两颗骰子的点数和决定换牌方向。
+    返回值：
+        -1 表示换给上家（逆时针）
+         0 表示换给对家
+         1 表示换给下家（顺时针）
+    """
+    print("🎲 摇骰子决定换牌方向...")
+    die1 = random.randint(1, 6)
+    die2 = random.randint(1, 6)
+    total = die1 + die2
+    print(f"🎲 摇出的点数是 {die1} 和 {die2}，总和为 {total}")
+
+    if total % 2 == 1:
+        print("🎴 奇数，总和为奇数，换给对家")
+        return 0
+    elif total in (2, 6, 10):
+        print("🎴 偶数，总和为 2, 6 或 10，顺时针换牌")
+        return 1
+    elif total in (4, 8, 12):
+        print("🎴 偶数，总和为 4, 8 或 12，逆时针换牌")
+        return -1
+    else:
+        print("⚠️ 异常点数，默认换给对家")
+        return 0
+
+# --- 只负责“分发”逻辑的函数，不做任何选牌／移除 ---
+def exchange_three_tiles(board, tiles_by_player: dict[WindPosition, list[Tile]], direction: int):
+    """
+    tiles_by_player[pos] 是 pos 自己想换出的三张牌（已从手上移除）
+    direction: -1=上家, 0=对家, 1=下家
+    """
+    print("=== DEBUG: 开始换三张分发 ===")
+    print(f"DEBUG ▶ direction = {direction}")
+    print("DEBUG ▶ 牌池（玩家→选出的牌）:")
+    for pos, tiles in tiles_by_player.items():
+        print(f"  {format_pos_name(pos)} 选: {[str(t) for t in tiles]}")
+    # 计算每家应收到谁的牌
+    mapping = {}
+    for src, tiles in tiles_by_player.items():
+        if direction == 0:
+            tgt = WindPosition((src.value + 2) % 4)
+        elif direction == 1:
+            tgt = src.next()
+        elif direction == -1:
+            tgt = WindPosition((src.value - 1) % 4)
+        else:
+            raise ValueError(f"未知换牌方向 {direction}")
+        mapping.setdefault(tgt, []).extend(tiles)
+
+    # 把牌发回手里
+    for pos, incoming in mapping.items():
+        board.get_hand(pos).extend(incoming)
+        print(f"{format_pos_name(pos)} 收到: {' '.join(map(color_tile, incoming))}")
+
+    print("✅ 换三张结束。")
+
 def main():
     focus_pos = WindPosition.EAST  # 👈 只观察东家
     board = MahjongBoard(rule="chuan")
@@ -67,8 +143,9 @@ def main():
     board.sort_all_hands()
 
     print("\n============================ 开局初始牌面（东家14张） ============================")
-    print_full_state(board)
+    print_full_state(board) # 打印初始牌面
 
+    # 指定玩家\AI
     agents = {
         WindPosition.EAST: HumanAgent(WindPosition.EAST, board),
         WindPosition.SOUTH: KoutsuAI(WindPosition.SOUTH, board),
@@ -76,10 +153,24 @@ def main():
         WindPosition.NORTH: KoutsuAI(WindPosition.NORTH, board),
     }
 
-    finished_players = set()
-    round_counter = 1
-    dealer = WindPosition.EAST
+    finished_players = set()    # 记录胡牌玩家
+    round_counter = 1           # 回合计数器
+    dealer = WindPosition.EAST  # 东家先手
 
+    # 换三张
+    tiles_to_give = {}
+    for pos in WindPosition:
+        sel = agents[pos].select_three_exchange()   # List[Tile], 长度一定是 3
+        for t in sel:
+            board.get_hand(pos).remove(t)           # 先从手上移除
+        tiles_to_give[pos] = sel
+
+    exchange_direction = determine_exchange_direction()
+    exchange_three_tiles(board, tiles_to_give, exchange_direction)
+    board.sort_all_hands()
+    print_full_state(board)  # 显示换牌后的牌面
+
+    # 庄家丢第一张牌
     first_discard = agents[dealer].choose_discard()
     board.discard_tile(dealer, first_discard)
     print(f"\n【{format_pos_name(WindPosition.EAST)} 首轮打出】: {color_tile(first_discard)}")
@@ -157,7 +248,7 @@ def main():
                 last_round_starter = current_pos  # 胡完由下家开始新回合
                 continue
 
-            discard = agents[current_pos].choose_discard(drawn)
+            discard = agents[current_pos].choose_discard()
             board.discard_tile(current_pos, discard)
             print(f"{format_pos_name(current_pos)} 打出: {color_tile(discard)}")
 

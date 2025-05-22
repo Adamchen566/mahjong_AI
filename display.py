@@ -26,11 +26,35 @@ def color_tile(t: Tile) -> str:
 def format_pos_name(pos: WindPosition) -> str:
     return f"{POSITION_COLOR[pos]}{pos.name}{RESET}"
 
-def print_full_state(board, pos_formatter=format_pos_name):
-    for p in WindPosition:
-        hand = board.get_hand(p)
-        melds = board.get_melds(p)
-        hand_str = ' '.join(color_tile(t) for t in hand)
-        melds_str = ' | '.join(''.join(color_tile(t) for t in meld) for meld in melds) if melds else "无"
-        print(f"{pos_formatter(p)} 手牌: {hand_str}")
-        print(f"{pos_formatter(p)} 副露: {melds_str}")
+def print_full_state(board, agents):
+    """
+    打印四家当前手牌、定缺和副露情况
+    agents: Dict[WindPosition, Agent]，每个 agent 需有 missing_suit 属性
+    """
+    print("\n============================ 当前牌面 ============================")
+    for pos in WindPosition:
+        agent = agents.get(pos)
+        # 定缺：用 color_tile 着色一个该门花色的示意牌（这里用1号）
+        miss = getattr(agent, "missing_suit", None)
+        if miss:
+            color = COLOR_MAP.get(miss, "")
+            # 显示“pin”“man”“sou”之一，带颜色
+            miss_colored = f"{color}{miss}{RESET}"
+            miss_str = f"(缺{miss_colored})"
+        else:
+            miss_str = ""
+        # 手牌
+        hand = sorted(board.get_hand(pos))
+        hand_str = " ".join(color_tile(t) for t in hand)
+        # 副露
+        melds = board.get_melds(pos)
+        if melds:
+            meld_strs = []
+            for meld in melds:
+                meld_strs.append("".join(color_tile(t) for t in meld))
+            meld_str = " 副露: " + " ".join(meld_strs)
+        else:
+            meld_str = ""
+        # 输出
+        print(f"{format_pos_name(pos)}{miss_str} 手牌: {hand_str}{meld_str}")
+    print("------------------\n")

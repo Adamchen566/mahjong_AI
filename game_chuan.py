@@ -4,7 +4,7 @@ from core.board import Tile
 from agents.human import HumanAgent
 from agents.simple import SimpleAI
 import random
-from collections import defaultdict
+from collections import defaultdict, Counter
 from agents.koutsu import KoutsuAI, can_win_koutsu_style
 from display import print_full_state, format_pos_name, color_tile
 
@@ -86,11 +86,10 @@ def determine_exchange_direction():
          0 表示换给对家
          1 表示换给下家（顺时针）
     """
-    print("🎲 摇骰子决定换牌方向...")
     die1 = random.randint(1, 6)
     die2 = random.randint(1, 6)
     total = die1 + die2
-    print(f"🎲 摇出的点数是 {die1} 和 {die2}，总和为 {total}")
+    print(f"摇骰子决定换牌方向... 🎲 摇出的点数是 {die1} 和 {die2}，总和为 {total}")
 
     if total % 2 == 1:
         print("🎴 奇数，总和为奇数，换给对家")
@@ -111,11 +110,9 @@ def exchange_three_tiles(board, tiles_by_player: dict[WindPosition, list[Tile]],
     tiles_by_player[pos] 是 pos 自己想换出的三张牌（已从手上移除）
     direction: -1=上家, 0=对家, 1=下家
     """
-    print("=== DEBUG: 开始换三张分发 ===")
-    print(f"DEBUG ▶ direction = {direction}")
-    print("DEBUG ▶ 牌池（玩家→选出的牌）:")
     for pos, tiles in tiles_by_player.items():
-        print(f"  {format_pos_name(pos)} 选: {[str(t) for t in tiles]}")
+        colored = " ".join(color_tile(t) for t in tiles)
+        print(f"  {format_pos_name(pos)} 选: [{colored}]")
     # 计算每家应收到谁的牌
     mapping = {}
     for src, tiles in tiles_by_player.items():
@@ -132,9 +129,49 @@ def exchange_three_tiles(board, tiles_by_player: dict[WindPosition, list[Tile]],
     # 把牌发回手里
     for pos, incoming in mapping.items():
         board.get_hand(pos).extend(incoming)
-        print(f"{format_pos_name(pos)} 收到: {' '.join(map(color_tile, incoming))}")
+        print(f"{format_pos_name(pos)} 收到: [{' '.join(map(color_tile, incoming))}]")
 
     print("✅ 换三张结束。")
+
+
+# --- 1. 定缺环节：每家选一个花色作为缺门 ---
+def dingque_phase(board, agents):
+    """
+    让每个玩家/AI 选择一个缺门（'man'、'pin'、'sou'）:
+      - HumanAgent 通过输入选缺
+      - SimpleAI / KoutsuAI 默认选自己手牌里数量最少的那一门
+    返回一个 dict: { WindPosition: 'man'/'pin'/'sou' }
+    """
+    missing = {}
+    for pos, agent in agents.items():
+        hand = board.get_hand(pos)
+        counts = Counter(t.suit.value for t in hand)
+        if hasattr(agent, 'select_missing_suit'):   # HumanAgent
+            choice = agent.select_missing_suit()      # 需实现此方法
+        else:
+            # 简单 AI：选最少的那门
+            choice = min(('man','pin','sou'), key=lambda s: counts.get(s, 0))
+        missing[pos] = choice
+        print(f"{format_pos_name(pos)} 定缺 → {choice}")
+    print("=== 定缺完成 ===\n")
+    return missing
+
+# --- 2. 严格执行“先打缺门”、不碰不杠缺门的规则 ---
+def must_discard_dingque(agent) -> bool:
+    """判定该 agent 是否手上还有缺门牌，若有则必须打出缺门。"""
+    miss = agent.missing_suit
+    hand = agent.board.get_hand(agent.position)
+    return any(t.suit.value == miss for t in hand)
+
+def can_win_dingque(agent, tile: Tile) -> bool:
+    hand = agent.board.get_hand(agent.position) + [tile]
+    # 如果最后手牌里还有缺门，则不能胡
+    if any(t.suit.value == agent.missing_suit for t in hand):
+        return False
+    # 否则调用原有判胡
+    return agent.can_win_on_tile(tile)
+
+
 
 def main():
     focus_pos = WindPosition.EAST  # 👈 只观察东家
@@ -143,8 +180,6 @@ def main():
     board.sort_all_hands()
 
     print("\n============================ 开局初始牌面（东家14张） ============================")
-    print_full_state(board) # 打印初始牌面
-
     # 指定玩家\AI
     agents = {
         WindPosition.EAST: HumanAgent(WindPosition.EAST, board),
@@ -152,23 +187,30 @@ def main():
         WindPosition.WEST: KoutsuAI(WindPosition.WEST, board),
         WindPosition.NORTH: KoutsuAI(WindPosition.NORTH, board),
     }
+    print_full_state(board, agents) # 打印初始牌面
 
     finished_players = set()    # 记录胡牌玩家
     round_counter = 1           # 回合计数器
     dealer = WindPosition.EAST  # 东家先手
 
     # 换三张
-    tiles_to_give = {}
+    tiles_to_give = {} # 给每家换出的牌
     for pos in WindPosition:
         sel = agents[pos].select_three_exchange()   # List[Tile], 长度一定是 3
         for t in sel:
             board.get_hand(pos).remove(t)           # 先从手上移除
         tiles_to_give[pos] = sel
-
-    exchange_direction = determine_exchange_direction()
+    
+    exchange_direction = determine_exchange_direction() # 换牌方向
     exchange_three_tiles(board, tiles_to_give, exchange_direction)
     board.sort_all_hands()
-    print_full_state(board)  # 显示换牌后的牌面
+    print_full_state(board, agents)  # 显示换牌后的牌面
+
+    # 定缺
+    for pos in WindPosition:
+        missing = agents[pos].select_missing_suit()
+        agents[pos].missing_suit = missing
+        print(f"{format_pos_name(agents[pos].position)} 定缺为 {missing}")
 
     # 庄家丢第一张牌
     first_discard = agents[dealer].choose_discard()
@@ -266,13 +308,13 @@ def main():
             elif result and result[0] == "meld":
                 current_pos = result[1]
                 last_round_starter = current_pos
-                print_full_state(board)
+                print_full_state(board, agents)
                 continue
 
         discard = agents[current_pos].choose_discard()
         board.discard_tile(current_pos, discard)
         print(f"{format_pos_name(current_pos)} 打出: {color_tile(discard)}")
-        print_full_state(board)
+        print_full_state(board, agents)
         print("\n")
 
         result = check_pon_or_kan(board, discard, current_pos, agents)
@@ -289,7 +331,7 @@ def main():
         if isinstance(result, tuple) and result[0] == "meld":
             current_pos = result[1]
             last_round_starter = current_pos  # 副露后从其下家作为新一轮起点
-            print_full_state(board)
+            print_full_state(board, agents)
             continue
         _, _, discard = result
         if last_round_starter is None:
@@ -300,7 +342,7 @@ def main():
 
     print("\n============================= 游戏结束（川麻） =============================")
     print("所有玩家的手牌：")
-    print_full_state(board)
+    print_full_state(board, agents)
     print("胡牌玩家有：")
     for pos in finished_players:
         print(f"  - {format_pos_name(pos)}")

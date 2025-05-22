@@ -19,12 +19,17 @@ class SimpleAI:
         # 筛选出至少3张的花色
         valid = {s: tiles for s, tiles in suits.items() if len(tiles) >= 3}
         if not valid:
-            # 若无任何花色满足条件，返回空列表
             return []
         # 选择最少牌数的花色
         chosen_suit = min(valid.keys(), key=lambda s: len(valid[s]))
         return valid[chosen_suit][:3]
 
+    def select_missing_suit(self) -> str:
+        """默认选择当前手牌中数量最少的花色作为定缺"""
+        hand = self.board.get_hand(self.position)
+        counts = Counter(tile.suit.value for tile in hand)
+        # 从万(man)、筒(pin)、条(sou)中选数量最少的
+        return min(("man", "pin", "sou"), key=lambda s: counts.get(s, 0))
 
     def choose_discard(self) -> Tile:
         # 简单策略：打出手中最少的那张牌
@@ -51,10 +56,9 @@ class SimpleAI:
                 return 'ankan', tile
 
         for meld in melds:
-            # 只支持碰（三张），就假设副露中一定是三张相同的
-            if len(meld) == 3 and meld[0] in hand:
+            if len(meld) == 3 and all(tile == meld[0] for tile in meld):
                 return 'chakan', meld[0]
-            
+
         return None, None
 
     def can_win(self) -> bool:
@@ -72,13 +76,11 @@ class SimpleAI:
     def is_winning_hand(self, tiles: list[Tile]) -> bool:
         # 简化版胡牌判定，仅检查 4 面子 + 1 对子的基本形式
         if len(tiles) % 3 != 2:
-            print("手牌数量不符合胡牌条件")
             return False
 
         from itertools import combinations
-        tiles.sort()
+        tiles = sorted(tiles)
         counter = Counter(tiles)
-        print(f"Counter: {counter}")
 
         pairs = [t for t in counter if counter[t] >= 2]
         for pair in pairs:
@@ -92,7 +94,7 @@ class SimpleAI:
     def can_form_melds(self, tiles: list[Tile]) -> bool:
         if not tiles:
             return True
-        tiles.sort()
+        tiles = sorted(tiles)
         first = tiles[0]
         count = tiles.count(first)
 
@@ -104,15 +106,12 @@ class SimpleAI:
 
         # 顺子（仅适用于万/筒/条）
         if first.suit.value in {"man", "pin", "sou"} and isinstance(first.value, int):
-            try:
-                second = Tile(first.suit, first.value + 1)
-                third = Tile(first.suit, first.value + 2)
-                if second in tiles and third in tiles:
-                    tiles.remove(first)
-                    tiles.remove(second)
-                    tiles.remove(third)
-                    return self.can_form_melds(tiles)
-            except Exception:
-                pass
+            second = Tile(first.suit, first.value + 1)
+            third = Tile(first.suit, first.value + 2)
+            if second in tiles and third in tiles:
+                tiles.remove(first)
+                tiles.remove(second)
+                tiles.remove(third)
+                return self.can_form_melds(tiles)
 
         return False

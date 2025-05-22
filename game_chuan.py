@@ -1,5 +1,6 @@
 from core.board import MahjongBoard
 from core.player import WindPosition
+from agents.human import HumanAgent
 from agents.simple import SimpleAI
 from agents.koutsu import KoutsuAI, can_win_koutsu_style
 from display import print_full_state, format_pos_name, color_tile
@@ -69,7 +70,7 @@ def main():
     print_full_state(board)
 
     agents = {
-        WindPosition.EAST: KoutsuAI(WindPosition.EAST, board),
+        WindPosition.EAST: HumanAgent(WindPosition.EAST, board),
         WindPosition.SOUTH: KoutsuAI(WindPosition.SOUTH, board),
         WindPosition.WEST: KoutsuAI(WindPosition.WEST, board),
         WindPosition.NORTH: KoutsuAI(WindPosition.NORTH, board),
@@ -104,17 +105,6 @@ def main():
 
         hand = board.get_hand(current_pos)
         melds = board.get_melds(current_pos)
-        if can_win_koutsu_style(hand, melds):
-            if agents[current_pos].decide_win():
-                print(f"🎉🎉🎉 {format_pos_name(current_pos)} 自摸胡了！ 🎉🎉🎉")
-                board.add_meld(current_pos, [last_tile])
-                finished_players.add(current_pos)
-                if len(finished_players) >= 3:
-                    print("三家胡牌，游戏结束。")
-                    break
-                current_pos = current_pos.next()
-                last_round_starter = current_pos  # 胡完由下家开始新回合
-                continue
 
         # 摸完决定是否杠（暗杠/加杠）# ✅ 仅在有牌可摸的情况下允许杠
         can_gang = len(board.wall) > 1
@@ -155,7 +145,19 @@ def main():
                     last_round_starter = current_pos
                     continue
 
-            discard = agents[current_pos].choose_discard()
+        if can_win_koutsu_style(hand, melds):
+            if agents[current_pos].decide_win(drawn):
+                print(f"🎉🎉🎉 {format_pos_name(current_pos)} 自摸胡了！ 🎉🎉🎉")
+                board.add_meld(current_pos, [drawn])
+                finished_players.add(current_pos)
+                if len(finished_players) >= 3:
+                    print("三家胡牌，游戏结束。")
+                    return
+                current_pos = current_pos.next()
+                last_round_starter = current_pos  # 胡完由下家开始新回合
+                continue
+
+            discard = agents[current_pos].choose_discard(drawn)
             board.discard_tile(current_pos, discard)
             print(f"{format_pos_name(current_pos)} 打出: {color_tile(discard)}")
 
@@ -173,7 +175,6 @@ def main():
                 last_round_starter = current_pos
                 print_full_state(board)
                 continue
-
 
         discard = agents[current_pos].choose_discard()
         board.discard_tile(current_pos, discard)
@@ -197,12 +198,12 @@ def main():
             last_round_starter = current_pos  # 副露后从其下家作为新一轮起点
             print_full_state(board)
             continue
-
         _, _, discard = result
         if last_round_starter is None:
             last_round_starter = current_pos  # 普通摸打的起始者
 
         current_pos = current_pos.next()
+        continue
 
     print("\n============================= 游戏结束（川麻） =============================")
     print("所有玩家的手牌：")
@@ -210,6 +211,14 @@ def main():
     print("胡牌玩家有：")
     for pos in finished_players:
         print(f"  - {format_pos_name(pos)}")
+    print("\n所有玩家的弃牌：")
+    for pos in WindPosition:
+        discards = board.get_discards(pos)
+        if discards:
+            colored_discards = ' '.join([color_tile(t) for t in discards])
+            print(f"{format_pos_name(pos)} 弃牌: {colored_discards}")
+        else:
+            print(f"{format_pos_name(pos)} 弃牌: 无")
 
 if __name__ == "__main__":
     main()

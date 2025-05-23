@@ -1,10 +1,29 @@
 # rules.py
 from typing import Optional, List
-from core.tiles import Tile
+from core.tiles import *
 from core.player import WindPosition
 from core.display import *
 from collections import Counter
 import random
+import json
+from enum import Enum
+
+suit_map = {
+    'bamboo': 'SOU',
+    'circle': 'PIN',
+    'character': 'MAN',
+    'dot': 'PIN',
+    'wan': 'MAN',
+}
+honors = {
+    'east': 'EAST',
+    'south': 'SOUTH',
+    'west': 'WEST',
+    'north': 'NORTH',
+    'red_dragon': 'RED',
+    'green_dragon': 'GREEN',
+    'white_dragon': 'WHITE',
+}
 
 def can_win_standard(
     hand: List[Tile],
@@ -240,3 +259,42 @@ def can_win_dingque(agent, tile: Tile) -> bool:
         return False
     # 否则调用原有判胡
     return agent.can_win_on_tile(tile)
+
+def vision_str_to_tile(tile_str):
+    suit_map = {
+        'bamboo': Suit.SOUZU,
+        'circle': Suit.PINZU,
+        'character': Suit.MANZU,
+        'dot': Suit.PINZU,
+        'wan': Suit.MANZU,
+    }
+    # honors 分别处理风和三元
+    wind_map = {
+        'east': Wind.EAST,
+        'south': Wind.SOUTH,
+        'west': Wind.WEST,
+        'north': Wind.NORTH,
+    }
+    dragon_map = {
+        'red_dragon': Dragon.RED,
+        'green_dragon': Dragon.GREEN,
+        'white_dragon': Dragon.WHITE,
+    }
+    if tile_str in wind_map:
+        return Tile(Suit.WIND, wind_map[tile_str])
+    if tile_str in dragon_map:
+        return Tile(Suit.DRAGON, dragon_map[tile_str])
+    if '_' in tile_str:
+        suit, rank = tile_str.split('_')
+        suit = suit.lower()
+        if suit in suit_map:
+            suit_enum = suit_map[suit]
+            value = int(rank) if rank.isdigit() else rank
+            return Tile(suit=suit_enum, value=value)
+    raise ValueError(f"无法识别的 tile_str: {tile_str}")
+
+
+def load_east_hand_from_vision(path="east_hand.json"):
+    with open(path, "r", encoding="utf-8") as f:
+        raw_tiles = json.load(f)
+    return [vision_str_to_tile(s) for s in raw_tiles]

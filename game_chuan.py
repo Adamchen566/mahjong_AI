@@ -2,15 +2,27 @@ from core.board import MahjongBoard
 from core.player import WindPosition
 from core.display import *
 from core.rules import *
+from core.tiles import Tile
 from agents.human import HumanAgent
 from agents.koutsu import KoutsuAI
+import json
 
 focus_pos = WindPosition.EAST
+
 
 def main():
     focus_pos = WindPosition.EAST  # 👈 只观察东家
     board = MahjongBoard(rule="chuan")
     board.shuffle_and_deal()
+
+    # 👇 读取东家的手牌替换
+    try:
+        east_hand = load_east_hand_from_vision("east_hand.json")
+        board.hands[WindPosition.EAST] = east_hand
+        print(f"东家手牌已由摄像头识别结果替换: {east_hand}")
+    except Exception as e:
+        print("无法读取摄像头识别的手牌，使用默认发牌。", e)
+
     board.sort_all_hands()
 
     print("\n============================ 开局初始牌面（东家14张） ============================")

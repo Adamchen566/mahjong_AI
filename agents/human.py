@@ -1,6 +1,5 @@
 from typing import Optional, Tuple, List
 from collections import Counter
-
 from core.player import WindPosition
 from core.tiles import Tile
 from core.display import color_tile, COLOR_MAP, RESET

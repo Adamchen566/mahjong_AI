@@ -5,7 +5,7 @@ from core.rules import *
 from core.tiles import Tile
 from agents.human import HumanAgent
 from agents.koutsu import KoutsuAI
-import json
+from agents.oracle import OracleAI
 
 focus_pos = WindPosition.EAST
 
@@ -28,8 +28,8 @@ def main():
     print("\n============================ 开局初始牌面（东家14张） ============================")
     # 指定玩家\AI
     agents = {
-        WindPosition.EAST: HumanAgent(WindPosition.EAST, board),
-        WindPosition.SOUTH: KoutsuAI(WindPosition.SOUTH, board),
+        WindPosition.EAST: OracleAI(WindPosition.EAST, board),
+        WindPosition.SOUTH: OracleAI(WindPosition.SOUTH, board),
         WindPosition.WEST: KoutsuAI(WindPosition.WEST, board),
         WindPosition.NORTH: KoutsuAI(WindPosition.NORTH, board),
     }
@@ -115,18 +115,34 @@ def main():
         kan_type, kan_tile = (None, None)
         if can_gang:
             kan_type, kan_tile = agents[current_pos].decide_concealed_or_added_kan()
+
         if kan_type == "ankan" and kan_tile is not None:
-            board.remove_tiles(current_pos, [kan_tile] * 4)
-            board.add_meld(current_pos, [kan_tile] * 4)
-            print(f"{format_pos_name(current_pos)} 暗杠了 {color_tile(kan_tile)}")
+            # 检查手牌里有4张再移除
+            hand_count = board.get_hand(current_pos).count(kan_tile)
+            if hand_count >= 4:
+                board.remove_tiles(current_pos, [kan_tile] * 4)
+                board.add_meld(current_pos, [kan_tile] * 4)
+                print(f"{format_pos_name(current_pos)} 暗杠了 {color_tile(kan_tile)}")
+            else:
+                print(f"[警告] {format_pos_name(current_pos)} 尝试暗杠 {color_tile(kan_tile)} 但手牌不足4张，跳过！")
 
         elif kan_type == "chakan" and kan_tile is not None:
-            board.remove_tiles(current_pos, [kan_tile])
+            # 检查副露区是否已有刻子并且手牌有这张牌
+            has_koutsu = False
             for meld in board.get_melds(current_pos):
                 if len(meld) == 3 and all(tile == kan_tile for tile in meld):
-                    meld.append(kan_tile)
+                    has_koutsu = True
                     break
-            print(f"{format_pos_name(current_pos)} 加杠了 {color_tile(kan_tile)}")
+            hand_count = board.get_hand(current_pos).count(kan_tile)
+            if has_koutsu and hand_count >= 1:
+                board.remove_tiles(current_pos, [kan_tile])
+                for meld in board.get_melds(current_pos):
+                    if len(meld) == 3 and all(tile == kan_tile for tile in meld):
+                        meld.append(kan_tile)
+                        break
+                print(f"{format_pos_name(current_pos)} 加杠了 {color_tile(kan_tile)}")
+            else:
+                print(f"[警告] {format_pos_name(current_pos)} 尝试加杠 {color_tile(kan_tile)} 失败，刻子或手牌数量不符，跳过！")
         else:
             kan_tile = None
 
@@ -234,5 +250,15 @@ def main():
         else:
             print(f"{format_pos_name(pos)} 弃牌: 无")
 
+def simulate_n_games(n=100):
+    win_count = 0
+    for i in range(n):
+        result = main()
+        if result:
+            win_count += 1
+        if (i+1) % 10 == 0:
+            print(f"已完成{i+1}局，当前胜率：{win_count/(i+1):.2%}")
+    print(f"\nOracleAI 100局自摸胡牌率：{win_count/n:.2%}")
+
 if __name__ == "__main__":
-    main()
+    simulate_n_games(1)

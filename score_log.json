@@ -1,0 +1,67 @@
+[
+  {
+    "scores": {
+      "EAST": 1,
+      "SOUTH": 0,
+      "WEST": 1,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [
+        {
+          "fans": [
+            "鸡胡"
+          ],
+          "score": 1,
+          "tile": [
+            "5man",
+            "5man",
+            "5man",
+            "7man",
+            "7man",
+            "2sou",
+            "3sou",
+            "4sou",
+            "5sou",
+            "6sou",
+            "7sou"
+          ],
+          "type": "自摸/荣和",
+          "stage": 21
+        }
+      ],
+      "SOUTH": [],
+      "WEST": [
+        {
+          "fans": [
+            "鸡胡"
+          ],
+          "score": 1,
+          "tile": [
+            "5pin",
+            "5pin",
+            "7pin",
+            "7pin"
+          ],
+          "type": "自摸/荣和",
+          "stage": 21
+        }
+      ],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 0,
+      "SOUTH": 0,
+      "WEST": 0,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [],
+      "SOUTH": [],
+      "WEST": [],
+      "NORTH": []
+    }
+  }
+]

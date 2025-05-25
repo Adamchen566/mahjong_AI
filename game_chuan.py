@@ -3,11 +3,14 @@ from core.player import WindPosition
 from core.display import *
 from core.rules import *
 from core.tiles import Tile
+from core.score import *
 from agents.human import HumanAgent
 from agents.koutsu import KoutsuAI
 from agents.oracle import OracleAI
 
 focus_pos = WindPosition.EAST
+recorder = ScoreRecorder("score_log.json")
+recorder.load()  # 启动时读取历史数据
 
 def main():
     board = MahjongBoard(rule="chuan")
@@ -21,6 +24,8 @@ def main():
         WindPosition.WEST: KoutsuAI(WindPosition.WEST, board),
         WindPosition.NORTH: KoutsuAI(WindPosition.NORTH, board),
     }
+    scores = {pos: 0 for pos in WindPosition}
+    score_logs = {pos: [] for pos in WindPosition}
     print_full_state(board, agents)  # 打印初始牌面
 
     finished_players = set()
@@ -100,7 +105,7 @@ def main():
         print(f"{format_pos_name(current_pos)} 摸牌: {color_tile(drawn)}")
         print(f"剩余牌数: {len(board.wall)}")
         board.sort_hand(current_pos)
-        print_seen_matrix_chuan(board, agents, "庄家打牌前 见牌矩阵")
+        print_seen_matrix_chuan(board, agents, f"{format_pos_name(current_pos)}摸牌后 见牌矩阵")
 
         hand = board.get_hand(current_pos)
         melds = board.get_melds(current_pos)
@@ -146,6 +151,7 @@ def main():
                         current_pos = current_pos.next()
                         last_round_starter = current_pos
                         continue
+                # 否则正常出牌
                 discard = agents[current_pos].choose_discard()
                 board.discard_tile(current_pos, discard)
                 print(f"{format_pos_name(current_pos)} 打出: {color_tile(discard)}")
@@ -189,7 +195,6 @@ def main():
                 # 若没被碰杠等，正常到下一家
                 current_pos = current_pos.next()
                 continue
-
 
         if kan_type:
             drawn = board.draw_tile(current_pos)
@@ -273,7 +278,22 @@ def main():
     print_full_state(board, agents)
     print("胡牌玩家有：")
     for pos in finished_players:
-        print(f"  - {format_pos_name(pos)}")
+        score = 1  # 可扩展为 get_fan_score(...)
+        fans = ["鸡胡"]  # 可扩展为自动判番
+        melds = [ [str(t) for t in meld] for meld in board.get_melds(pos) ]   # <--- 新增副露记录
+        scores[pos] += score
+        score_logs[pos].append({
+            "fans": fans,
+            "score": score,
+            "tile": [str(t) for t in board.get_hand(pos)],  # 或胡的牌tile
+            "melds": melds,  # <--- 加入副露信息
+            "type": "自摸/荣和",  # 可根据实际区分
+            "stage": round_counter
+        })
+        print(f"{format_pos_name(pos)} 胡牌获得 {score} 分，番型：{'/'.join(fans)}")
+    recorder.record_game(scores, score_logs)
+    recorder.save()
+
     print("\n所有玩家的弃牌：")
     for pos in WindPosition:
         discards = board.get_discards(pos)
@@ -284,14 +304,12 @@ def main():
         else:
             print(f"{format_pos_name(pos)} 弃牌: 无")
 
-def simulate_n_games(n=100):
-    win_count = 0
-    for i in range(n):
-        result = main()
-        if result:
-            win_count += 1
-        if (i+1) % 10 == 0:
-            print(f"已完成{i+1}局，当前胜率：{win_count/(i+1):.2%}")
 
 if __name__ == "__main__":
-    simulate_n_games(1)
+    for i in range(2):
+        result = main()
+    recorder.print_summary()
+    print("累计总分:", recorder.get_total_scores())
+
+
+

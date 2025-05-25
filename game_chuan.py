@@ -6,33 +6,41 @@ from core.tiles import Tile
 from agents.human import HumanAgent
 from agents.koutsu import KoutsuAI
 from agents.oracle import OracleAI
+from ui import MahjongTableUI
+import tkinter as tk
+
 
 focus_pos = WindPosition.EAST
 
 
 def main():
-    focus_pos = WindPosition.EAST  # 👈 只观察东家
+    # focus_pos = WindPosition.EAST  # 👈 只观察东家
     board = MahjongBoard(rule="chuan")
     board.shuffle_and_deal()
 
     # 👇 读取东家的手牌替换
-    try:
-        east_hand = load_east_hand_from_vision("east_hand.json")
-        board.hands[WindPosition.EAST] = east_hand
-        print(f"东家手牌已由摄像头识别结果替换: {east_hand}")
-    except Exception as e:
-        print("无法读取摄像头识别的手牌，使用默认发牌。", e)
-
+    # try:
+    #     east_hand = load_east_hand_from_vision("east_hand.json")
+    #     board.hands[WindPosition.EAST] = east_hand
+    #     print(f"东家手牌已由摄像头识别结果替换: {east_hand}")
+    # except Exception as e:
+    #     print("无法读取摄像头识别的手牌，使用默认发牌。", e)
     board.sort_all_hands()
+
+    # agents 先不初始化
+    agents = {}
+    # 创建ui实例，并把agents和human_pos一起传进去
+    ui = MahjongTableUI(board, agents, WindPosition.EAST, tile_img_dir="tiles")
 
     print("\n============================ 开局初始牌面（东家14张） ============================")
     # 指定玩家\AI
     agents = {
-        WindPosition.EAST: OracleAI(WindPosition.EAST, board),
+        WindPosition.EAST: HumanAgent(WindPosition.EAST, board, ui),
         WindPosition.SOUTH: OracleAI(WindPosition.SOUTH, board),
         WindPosition.WEST: KoutsuAI(WindPosition.WEST, board),
         WindPosition.NORTH: KoutsuAI(WindPosition.NORTH, board),
     }
+    ui.agents = agents
     print_full_state(board, agents) # 打印初始牌面
 
     finished_players = set()    # 记录胡牌玩家
@@ -46,14 +54,17 @@ def main():
         for t in sel:
             board.get_hand(pos).remove(t)           # 先从手上移除
         tiles_to_give[pos] = sel
+    ui.draw_table()
     
     exchange_direction = determine_exchange_direction() # 换牌方向
     exchange_three_tiles(board, tiles_to_give, exchange_direction)
     board.sort_all_hands()
-    print_full_state(board, agents)  # 显示换牌后的牌面
+    ui.draw_table()  # 玩家已拿到新手牌
+    print_full_state(board, agents)
 
     # 定缺
     dingque_phase(board, agents)
+    ui.draw_table()
 
     # 查天胡
     hand = board.get_hand(dealer)
@@ -102,10 +113,12 @@ def main():
             round_counter += 1
             last_round_starter = None  # 清除当前起始者标记
 
+        # 摸牌阶段
         drawn = board.draw_tile(current_pos)
         print(f"{format_pos_name(current_pos)} 摸牌: {color_tile(drawn)}")
         print(f"剩余牌数: {len(board.wall)}")
         board.sort_hand(current_pos)
+        ui.draw_table()
 
         hand = board.get_hand(current_pos)
         melds = board.get_melds(current_pos)
@@ -210,7 +223,9 @@ def main():
         print(f"{format_pos_name(current_pos)} 打出: {color_tile(discard)}")
         print_full_state(board, agents)
         print("\n")
+        ui.draw_table()
 
+        # 检查其他玩家是否能碰杠或胡
         result = check_pon_or_kan(board, discard, current_pos, agents)
         if isinstance(result, tuple) and result[0] == "win":
             _, winner_pos, _ = result

@@ -2,8 +2,8 @@ from core.board import MahjongBoard
 from core.player import WindPosition
 from core.display import *
 from core.rules import *
-from core.tiles import Tile
 from core.score import *
+from core.fan import get_fan_score
 from agents.human import HumanAgent
 from agents.koutsu import KoutsuAI
 from agents.oracle import OracleAI
@@ -48,16 +48,28 @@ def main():
     # 定缺
     dingque_phase(board, agents)
 
+    # 作弊：东家手牌设为碰碰胡
+    board.hands[WindPosition.EAST] = [
+        Tile(Suit.MANZU, 2), Tile(Suit.MANZU, 2), Tile(Suit.MANZU, 2),  # 刻1
+        Tile(Suit.MANZU, 3), Tile(Suit.MANZU, 3), Tile(Suit.MANZU, 3),  # 刻2
+        Tile(Suit.MANZU, 4), Tile(Suit.MANZU, 4), Tile(Suit.MANZU, 4),  # 刻3
+        Tile(Suit.MANZU, 5), Tile(Suit.MANZU, 5), Tile(Suit.MANZU, 5),  # 刻4
+        Tile(Suit.SOUZU, 6), Tile(Suit.SOUZU, 6),                       # 对子
+    ]
+
     # 查天胡
     hand = board.get_hand(dealer)
     melds = board.get_melds(dealer)
     print(f"\n检查{format_pos_name(dealer)}是否天胡, 缺门是{agents[dealer].missing_suit}")
+    tianhu = dihu = False
+    first_discard = None
     if can_win_standard(hand, melds):
         if agents[dealer].decide_win(None):
             print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dealer)} 天胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
             finished_players.add(dealer)
             current_pos = dealer.next()
             last_round_starter = current_pos
+            tianhu = True
         else:
             current_pos = dealer.next()
             last_round_starter = dealer
@@ -65,25 +77,28 @@ def main():
         current_pos = dealer.next()
         last_round_starter = dealer
 
-    print_seen_matrix_chuan(board, agents, "庄家打牌前 见牌矩阵")
-    # 庄家丢第一张牌
-    first_discard = agents[dealer].choose_discard()
-    board.discard_tile(dealer, first_discard)
-    print(f"\n【{format_pos_name(WindPosition.EAST)} 首轮打出】: {color_tile(first_discard)}")
-    print(f"剩余牌数: {len(board.wall)}")
+    # 未天胡,庄家打牌
+    if (not tianhu):
+        print_seen_matrix_chuan(board, agents, "庄家打牌前 见牌矩阵")
+        # 庄家丢第一张牌
+        first_discard = agents[dealer].choose_discard()
+        board.discard_tile(dealer, first_discard)
+        print(f"\n【{format_pos_name(WindPosition.EAST)} 首轮打出】: {color_tile(first_discard)}")
+        print(f"剩余牌数: {len(board.wall)}")
 
-    # 检查第一张是否是胡牌
-    for dihu_pos in WindPosition:
-        if dihu_pos == dealer:
-            continue
-        print(f"检查 {format_pos_name(dihu_pos)} 是否地胡 {color_tile(first_discard)}")
-        if can_win_standard(board.get_hand(dihu_pos), board.get_melds(dihu_pos), first_discard):
-            if agents[dihu_pos].decide_win(first_discard):
-                print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dihu_pos)} 地胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
-                board.add_meld(dihu_pos, [first_discard])
-                finished_players.add(dihu_pos)
-                current_pos = dihu_pos.next()
-                last_round_starter = dihu_pos
+        # 检查第一张是否是胡牌
+        for dihu_pos in WindPosition:
+            if dihu_pos == dealer:
+                continue
+            print(f"检查 {format_pos_name(dihu_pos)} 是否地胡 {color_tile(first_discard)}")
+            if can_win_standard(board.get_hand(dihu_pos), board.get_melds(dihu_pos), first_discard):
+                if agents[dihu_pos].decide_win(first_discard):
+                    print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dihu_pos)} 地胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
+                    board.add_meld(dihu_pos, [first_discard])
+                    finished_players.add(dihu_pos)
+                    current_pos = dihu_pos.next()
+                    last_round_starter = dihu_pos
+                    dihu = True
 
     # 跳过已胡玩家
     while current_pos in finished_players:
@@ -278,15 +293,21 @@ def main():
     print_full_state(board, agents)
     print("胡牌玩家有：")
     for pos in finished_players:
-        score = 1  # 可扩展为 get_fan_score(...)
-        fans = ["鸡胡"]  # 可扩展为自动判番
-        melds = [ [str(t) for t in meld] for meld in board.get_melds(pos) ]   # <--- 新增副露记录
+        hand = board.get_hand(pos)
+        melds = board.get_melds(pos)
+        if tianhu:
+            score, fans = get_fan_score(hand, melds, is_tianhu=True)
+        elif dihu:
+            score, fans = get_fan_score(hand, melds, is_dihu=True)
+        else:
+            score, fans = get_fan_score(hand, melds)
+        score, fans = get_fan_score(hand, melds)
         scores[pos] += score
         score_logs[pos].append({
             "fans": fans,
             "score": score,
-            "tile": [str(t) for t in board.get_hand(pos)],  # 或胡的牌tile
-            "melds": melds,  # <--- 加入副露信息
+            "tile": [str(t) for t in hand],   # 手牌字符串化
+            "melds": [ [str(t) for t in meld] for meld in melds ],  # 副露字符串化
             "type": "自摸/荣和",  # 可根据实际区分
             "stage": round_counter
         })

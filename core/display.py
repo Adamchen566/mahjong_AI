@@ -19,6 +19,12 @@ POSITION_COLOR = {
 
 RESET = "\033[0m"
 
+GRAY = "\033[90m"
+GREEN = "\033[34m"
+
+def color_seen_num(num):
+    return f"{GREEN}{num}{RESET}" if num == 1 else f"{GRAY}{num}{RESET}"
+
 def color_tile(t: Tile) -> str:
     color = COLOR_MAP.get(t.suit.value, "")
     return f"{color}{t}{RESET}"

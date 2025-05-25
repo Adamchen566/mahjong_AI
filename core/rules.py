@@ -94,7 +94,10 @@ def _can_form_n_melds(tiles: list[Tile], sets_left: int) -> bool:
 
     return False
 
-def check_pon_or_kan(board, last_tile, last_pos, agents):
+def check_pon_or_kan(board, last_tile, last_pos, agents, finished_players=None):
+    if finished_players is None:
+        finished_players = set()
+
     """
     检查当前局面是否有人能胡牌或碰杠。
 
@@ -113,6 +116,8 @@ def check_pon_or_kan(board, last_tile, last_pos, agents):
     """
     for offset in range(1, 4):  # 逆时针三家
         responder_pos = WindPosition((last_pos.value - offset) % 4)
+        if responder_pos in finished_players:
+            continue  # 已胡玩家跳过
         agent = agents[responder_pos]
 
         # ✅ 先检查是否能荣和
@@ -298,3 +303,92 @@ def load_east_hand_from_vision(path="east_hand.json"):
     with open(path, "r", encoding="utf-8") as f:
         raw_tiles = json.load(f)
     return [vision_str_to_tile(s) for s in raw_tiles]
+
+def tile_short_name(tile_name: str) -> str:
+    if tile_name.endswith("man"):
+        return tile_name[0] + "m"
+    elif tile_name.endswith("pin"):
+        return tile_name[0] + "p"
+    elif tile_name.endswith("sou"):
+        return tile_name[0] + "s"
+    elif tile_name in ("ew", "sw", "ww", "nw"):
+        return tile_name[0]  # e, s, w, n
+    else:
+        return tile_name  # 1d, 2d, 3d
+    
+def color_tile_short_name(tile_name: str) -> str:
+    short = tile_short_name(tile_name)
+    # 颜色部分同前
+    if tile_name.endswith("man"):
+        color = COLOR_MAP["man"]
+    elif tile_name.endswith("pin"):
+        color = COLOR_MAP["pin"]
+    elif tile_name.endswith("sou"):
+        color = COLOR_MAP["sou"]
+    else:
+        color = ""
+    # 先不加颜色，居中好后再加色
+    col_width = 3
+    raw = f"{short:^{col_width}}"
+    return f"{color}{raw}{RESET}"
+
+def print_seen_matrix_chuan(board, agents, label="见牌矩阵"):
+    tile_order = [
+        '1man','2man','3man','4man','5man','6man','7man','8man','9man',
+        '1pin','2pin','3pin','4pin','5pin','6pin','7pin','8pin','9pin',
+        '1sou','2sou','3sou','4sou','5sou','6sou','7sou','8sou','9sou',
+    ]
+    seen_counts = {key: [1, 1, 1, 1] for key in tile_order}
+    for pos in agents:
+        for t in board.get_hand(pos):
+            key = f"{t.value}{t.suit.value}"
+            for idx in range(4):
+                if seen_counts.get(key) and seen_counts[key][idx] == 1:
+                    seen_counts[key][idx] = 0
+                    break
+        for meld in board.get_melds(pos):
+            for t in meld:
+                key = f"{t.value}{t.suit.value}"
+                for idx in range(4):
+                    if seen_counts.get(key) and seen_counts[key][idx] == 1:
+                        seen_counts[key][idx] = 0
+                        break
+        for t in board.get_discards(pos):
+            key = f"{t.value}{t.suit.value}"
+            for idx in range(4):
+                if seen_counts.get(key) and seen_counts[key][idx] == 1:
+                    seen_counts[key][idx] = 0
+                    break
+
+    col_width = 3
+    man_border = 9
+    pin_border = 18
+
+    print(f"\n== {label} ==")
+    # 顶部边框
+    print("┌" + ("─"*col_width + "┬")* (man_border-1) + "─"*col_width + "╥" +
+          ("─"*col_width + "┬")* (pin_border-man_border-1) + "─"*col_width + "╥" +
+          ("─"*col_width + "┬")* (len(tile_order)-pin_border-1) + "─"*col_width + "┐")
+    # 牌名行
+    print("│", end="")
+    for i, key in enumerate(tile_order):
+        raw = f"{tile_short_name(key):^{col_width}}"
+        print(f"{color_tile_short_name(key)}│", end="")
+        # 不加粗线！
+    print()
+    # 分割线
+    print("├" + ("─"*col_width + "┼")* (man_border-1) + "─"*col_width + "╬" +
+          ("─"*col_width + "┼")* (pin_border-man_border-1) + "─"*col_width + "╬" +
+          ("─"*col_width + "┼")* (len(tile_order)-pin_border-1) + "─"*col_width + "┤")
+    # 4行
+    for row in range(4):
+        print("│", end="")
+        for i, key in enumerate(tile_order):
+            v = seen_counts[key][row]
+            # 统一宽度为3，字符左右各有空格，避免对齐错位
+            print(f" {color_seen_num(v)} │", end="")
+        print()
+    # 底部边框
+    print("└" + ("─"*col_width + "┴")* (man_border-1) + "─"*col_width + "╨" +
+          ("─"*col_width + "┴")* (pin_border-man_border-1) + "─"*col_width + "╨" +
+          ("─"*col_width + "┴")* (len(tile_order)-pin_border-1) + "─"*col_width + "┘\n")

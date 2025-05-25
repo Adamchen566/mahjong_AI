@@ -3,6 +3,7 @@ from core.tiles import Tile
 from collections import Counter
 from typing import Optional, Tuple
 from agents.simple import SimpleAI
+from core.tilesCounter import MahjongCounter
 
 class KoutsuAI(SimpleAI):
     """基于 SimpleAI 的增强版 AI，支持可配置的荣和/自摸权限"""
@@ -10,6 +11,22 @@ class KoutsuAI(SimpleAI):
         super().__init__(position, board)
         self.allow_ron = allow_ron
         self.allow_tsumo = allow_tsumo
+        self.counter = MahjongCounter()
+
+    def sync_counter(self, agents, board):
+        # 只同步自己全部牌信息，必要时可加副露、弃牌、墙等
+        self.counter.reset()
+        self.counter.fill_from_list(board.get_hand(self.position), channel=0)
+        for meld in board.get_melds(self.position):
+            for tile in meld:
+                self.counter.add(tile, channel=1)
+        for tile in board.get_discards(self.position):
+            self.counter.add(tile, channel=2)
+        # 若是神谕AI，可以同步所有信息
+
+    def print_counter(self):
+        print(f"\n玩家 {self.position} 计数器:")
+        self.counter.print_counter()
 
     def decide_win(self, tile: Optional[Tile] = None) -> bool:
         """优先使用标准判胡：四组面子+一对（顺子或刻子均可）"""

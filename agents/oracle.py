@@ -6,6 +6,7 @@ from core.tiles import Tile
 from core.rules import can_win_standard
 import json
 from datetime import datetime
+from core.tilesCounter import MahjongCounter
 
 
 class OracleAI:
@@ -17,6 +18,23 @@ class OracleAI:
         self.position = position
         self.board = board
         self.full_info = {}
+        
+        self.counter = MahjongCounter()
+
+    def sync_counter(self, agents, board):
+        # 只同步自己全部牌信息，必要时可加副露、弃牌、墙等
+        self.counter.reset()
+        self.counter.fill_from_list(board.get_hand(self.position), channel=0)
+        for meld in board.get_melds(self.position):
+            for tile in meld:
+                self.counter.add(tile, channel=1)
+        for tile in board.get_discards(self.position):
+            self.counter.add(tile, channel=2)
+        # 若是神谕AI，可以同步所有信息
+
+    def print_counter(self):
+        print(f"\n玩家 {self.position} 计数器:")
+        self.counter.print_counter()
 
     def update_full_info(self):
         """每次决策前刷新全场明牌信息，方便后续更复杂策略分析"""

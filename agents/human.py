@@ -1,98 +1,184 @@
 from typing import Optional, Tuple, List
-from collections import Counter
-from core.player import WindPosition
 from core.tiles import Tile
 from core.rules import can_win_standard
-
-import tkinter as tk
-from tkinter import simpledialog, messagebox
+from core.tilesCounter import MahjongCounter
+from core.display import color_tile, COLOR_MAP, RESET
 
 class HumanAgent:
     """
-    适配Tkinter麻将桌UI的玩家代理：所有交互通过GUI而非input()。
+    适配终端调试的玩家代理，所有交互用 input()。
     """
-    def __init__(self, position: WindPosition, board, ui):
+    def __init__(self, position, board, all_players):
         self.position = position
         self.board = board
-        self.ui = ui  # 必须传入MahjongTableUI实例
-        self.missing_suit: Optional[str] = None
+        self.counter = MahjongCounter()
+        self.all_players = all_players  # 四家玩家对象
+        self.wall_counter = MahjongCounter()
+
+    def sync_counter(self):
+        # 获取全部信息，写入 counter
+        self.counter = MahjongCounter()  # 先清空
+        # 手牌
+        for tile in self.board.get_hand(self.position):
+            self.counter.add(tile, channel=0)
+        # 副露
+        for meld in self.board.get_melds(self.position):
+            for tile in meld:
+                self.counter.add(tile, channel=1)
+        # 弃牌
+        for tile in self.board.get_discards(self.position):
+            self.counter.add(tile, channel=2)
+
+    def sync_all(self):
+        # 本家
+        self.counter.reset()
+        self.counter.fill_from_list(self.board.get_hand(self.position), channel=0)
+        # 副露
+        for meld in self.board.get_melds(self.position):
+            for tile in meld:
+                self.counter.add(tile, channel=1)
+        # 弃牌
+        for tile in self.board.get_discards(self.position):
+            self.counter.add(tile, channel=2)
+        # 牌墙（神谕）
+        self.wall_counter.reset()
+        for tile in self.board.get_wall():
+            self.wall_counter.add(tile, channel=0)
+        # 其它玩家
+        for p in self.all_players:
+            if p.position == self.position:
+                continue
+            p.counter.reset()
+            p.counter.fill_from_list(self.board.get_hand(p.position), channel=0)
+            for meld in self.board.get_melds(p.position):
+                for tile in meld:
+                    p.counter.add(tile, channel=1)
+            for tile in self.board.get_discards(p.position):
+                p.counter.add(tile, channel=2)
+
+    def print_all_counters(self):
+        print(f"\n=== 玩家 {self.position} 信息 ===")
+        self.counter.print_counter(f"玩家 {self.position} 计数器")
+        for p in self.all_players:
+            if p.position != self.position:
+                p.counter.print_counter(f"对家 {p.position} 计数器")
+        self.wall_counter.print_counter("牌墙计数器")
+
+    # 在每次操作（如出牌、摸牌、操作副露等）前后，调用这两个方法
+    def before_action(self):
+        self.sync_all()
+        self.print_all_counters()
 
     def select_missing_suit(self) -> str:
-        result = []
-        def on_pick(suit):
-            result.append(suit)
-        self.ui.ask_missing_suit(callback=on_pick)
-        while not result:
-            self.ui.update()
-        self.missing_suit = result[0]
-        return result[0]
-
-    def select_three_exchange(self):
-        result = []
-        def on_choice(choice):
-            result.extend(choice)
-        self.ui.ask_choice("请选择要换出的三张同花色牌", max_choice=3, callback=on_choice)
-        while len(result) < 3:
-            self.ui.update()
+        """让玩家手动选择定缺花色"""
         hand = self.board.get_hand(self.position)
-        hand_sorted = sorted(hand)
-        selected_tiles = []
-        for idx, tile_str in result:
-            selected_tiles.append(hand_sorted[idx])
-        return selected_tiles
+        print("你的手牌: " + ' '.join(color_tile(t) for t in hand))
+        while True:
+            choice = input("请选择定缺门（man/pin/sou）: ").strip().lower()
+            if choice in ("man", "pin", "sou"):
+                self.missing_suit = choice
+                return choice
+            print("❌ 输入无效，请输入 man、pin 或 sou")
 
-    def choose_discard(self, drawn_tile=None):
-        result = []
-        def on_choice(tiles):
-            result.extend(tiles)
-            self.ui.prompt_label.config(text="")  # 清空提示
-        self.ui.ask_choice("请选择要打出的牌", max_choice=1, callback=on_choice)
-        while not result:
-            self.ui.update()  # 让界面实时刷新
+    def select_three_exchange(self) -> List[Tile]:
+        """让玩家手动选择三张同花色牌进行换三张
+        格式: 花色 编号1 编号2 编号3，例如 man 1 2 3"""
         hand = self.board.get_hand(self.position)
-        hand_sorted = sorted(hand)
-        idx, tile_str = result[0]
-        return hand_sorted[idx]
+        print("你的手牌: " + ' '.join(color_tile(t) for t in hand))
+        while True:
+            inp = input("请输入要换出的三张同花色的牌（格式: man 1 2 3）: ").strip()
+            parts = inp.split()
+            if len(parts) != 4:
+                print("❌ 格式错误，请输入 1 个花色 + 3 个数字，用空格分隔")
+                continue
+            suit = parts[0]
+            if suit not in ("man", "pin", "sou"):
+                print("❌ 花色输入错误，请输入 man、pin 或 sou")
+                continue
+            try:
+                tiles: List[Tile] = []
+                for r in parts[1:]:
+                    rank = int(r)
+                    tile = next(
+                        t for t in hand
+                        if t.suit.value == suit and t.value == rank
+                    )
+                    tiles.append(tile)
+                return tiles
+            except (ValueError, StopIteration):
+                print("❌ 输入无效，请确保数字在 1-9 之间且牌在你的手牌中")
 
-    def decide_meld_action(self, last_tile: Tile) -> Optional[str]:
-        """通过弹窗询问碰/杠决策"""
+    def choose_discard(self, drawn_tile: Optional[Tile] = None) -> Tile:
+        # 打印缺门
+        if self.missing_suit:
+            color = COLOR_MAP.get(self.missing_suit, "")
+            miss_colored = f"{color}{self.missing_suit}{RESET}"
+            print(f"当前缺门: {miss_colored}")
+
+        # 打印手牌
         hand = self.board.get_hand(self.position)
-        count = hand.count(last_tile)
-        action = None
-        if count >= 3:
-            if messagebox.askyesno("杠", f"是否要杠 {last_tile}?"):
+        display = []
+        for t in sorted(hand):
+            ct = color_tile(t)
+            if drawn_tile and t == drawn_tile:
+                ct = f"\033[1;107m{ct}\033[0m"
+            display.append(ct)
+        print("你的手牌: " + ' '.join(display))
+
+        # 让玩家选择要出的牌
+        while True:
+            inp = input("请输入要打出的牌（如 5man 或 7pin 或 3sou），或者输入下标（如 0 1 2...）: ").strip()
+            hand_sorted = sorted(hand)
+            # 尝试按下标
+            if inp.isdigit():
+                idx = int(inp)
+                if 0 <= idx < len(hand_sorted):
+                    return hand_sorted[idx]
+                else:
+                    print("❌ 下标超出范围")
+            else:
+                # 尝试按牌名匹配
+                try:
+                    # 支持格式如 5man 3sou 4pin
+                    import re
+                    m = re.fullmatch(r'(\d)(man|pin|sou)', inp)
+                    if m:
+                        rank = int(m.group(1))
+                        suit = m.group(2)
+                        for t in hand_sorted:
+                            if t.value == rank and t.suit.value == suit:
+                                return t
+                        print("❌ 该牌不在你的手牌中")
+                    else:
+                        print("❌ 输入格式错误，请重新输入")
+                except Exception:
+                    print("❌ 输入无法识别，请重新输入")
+
+    def decide_meld_action(self, last_tile):
+        hand = self.board.get_hand(self.position)
+        cnt = hand.count(last_tile)
+        if cnt >= 3:
+            ans = input(f"你有三张{last_tile}，是否要杠？(y/n): ")
+            if ans.lower().startswith("y"):
                 return 'kan'
-        if count >= 2:
-            if messagebox.askyesno("碰", f"是否要碰 {last_tile}?"):
+        if cnt >= 2:
+            ans = input(f"你有两张{last_tile}，是否要碰？(y/n): ")
+            if ans.lower().startswith("y"):
                 return 'pon'
         return None
 
-    def decide_concealed_or_added_kan(self) -> Tuple[Optional[str], Optional[Tile]]:
-        """通过弹窗询问暗杠或加杠"""
+    def can_win(self):
         hand = self.board.get_hand(self.position)
         melds = self.board.get_melds(self.position)
-        counts = Counter(hand)
-        for tile, cnt in counts.items():
-            if cnt == 4 and messagebox.askyesno("暗杠", f"是否暗杠 {tile}?"):
-                return 'ankan', tile
-        for meld in melds:
-            if len(meld) == 3 and hand.count(meld[0]) >= 1:
-                if messagebox.askyesno("加杠", f"是否加杠 {meld[0]}?"):
-                    return 'chakan', meld[0]
-        return None, None
-
-    def can_win(self) -> bool:
-        hand = self.board.get_hand(self.position)
-        melds = self.board.get_melds(self.position)
+        # 假设已有can_win_standard
         return can_win_standard(hand, melds, None)
 
-    def can_win_on_tile(self, tile: Tile) -> bool:
-        hand = self.board.get_hand(self.position)
-        melds = self.board.get_melds(self.position)
-        return can_win_standard(hand, melds, tile)
-
-    def decide_win(self, tile: Optional[Tile] = None) -> bool:
-        """通过弹窗询问是否胡牌"""
+    def decide_win(self, tile=None):
         mode = '荣和' if tile is not None and tile not in self.board.get_hand(self.position) else '自摸'
-        return messagebox.askyesno("胡牌", f"是否{mode}胡牌？")
+        ans = input(f"是否{mode}胡牌？(y/n): ")
+        return ans.lower().startswith("y")
 
+    # 你可以在回合或每次操作后调用
+    def update_and_sync(self):
+        self.sync_counter()
+        # print("当前计数器内容：\n", self.counter.get_counter())

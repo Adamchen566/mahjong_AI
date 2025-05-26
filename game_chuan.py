@@ -14,6 +14,7 @@ recorder.load()  # 启动时读取历史数据
 
 def main():
     game_over = False
+    win_records = []  # 记录所有胡牌信息
     board = MahjongBoard(rule="chuan")
     board.shuffle_and_deal()
     board.sort_all_hands()
@@ -57,11 +58,12 @@ def main():
     first_discard = None
     if can_win_all(hand, melds):
         if agents[dealer].decide_win(None):
-            print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dealer)} 天胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
+            print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dealer)} 天胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
             finished_players.add(dealer)
             current_pos = dealer.next()
             last_round_starter = current_pos
             tianhu = True
+            win_records.append({'pos': dealer, 'type': 'zimo', 'loser': None})
         else:
             current_pos = dealer.next()
             last_round_starter = dealer
@@ -85,12 +87,13 @@ def main():
             print(f"检查 {format_pos_name(dihu_pos)} 是否地胡 {color_tile(first_discard)}")
             if can_win_all(board.get_hand(dihu_pos), board.get_melds(dihu_pos), first_discard):
                 if agents[dihu_pos].decide_win(first_discard):
-                    print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dihu_pos)} 地胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
+                    print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dihu_pos)} 地胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
                     board.add_meld(dihu_pos, [first_discard])
                     finished_players.add(dihu_pos)
                     current_pos = dihu_pos.next()
                     last_round_starter = dihu_pos
                     dihu = True
+                    win_records.append({'pos': dihu_pos, 'type': 'ron', 'loser': dealer})
 
     # 作弊发牌
     board.hands[WindPosition.EAST] = [
@@ -162,6 +165,7 @@ def main():
                         board.add_meld(current_pos, [drawn])
                         finished_players.add(current_pos)
                         print(f"🎉🎉🎉 {format_pos_name(current_pos)} 杠后自摸胡了！ 🎉🎉🎉")
+                        win_records.append({'pos': current_pos, 'type': 'zimo', 'loser': None})
                         if len(finished_players) >= 3:
                             print("三家胡牌，游戏结束。")
                             game_over = True
@@ -176,6 +180,8 @@ def main():
                 result = check_pon_or_kan(board, discard, current_pos, agents, finished_players)
                 if result and result[0] == "win":
                     finished_players.add(result[1])
+                    win_records.append({'pos': winner_pos, 'type': 'ron', 'loser': current_pos})
+                    print(f"🎉🎉🎉 {format_pos_name(result[1])} 荣胡了！ 🎉🎉🎉")
                     if len(finished_players) >= 3:
                         print("三家胡牌，游戏结束。")
                         game_over = True
@@ -200,6 +206,8 @@ def main():
                 result = check_pon_or_kan(board, discard, current_pos, agents, finished_players)
                 if result and result[0] == "win":
                     finished_players.add(result[1])
+                    win_records.append({'pos': winner_pos, 'type': 'ron', 'loser': current_pos})
+                    print(f"🎉🎉🎉 {format_pos_name(result[1])} 荣胡了！ 🎉🎉🎉")
                     if len(finished_players) >= 3:
                         print("三家胡牌，游戏结束。")
                         game_over = True
@@ -226,6 +234,7 @@ def main():
                 if agents[current_pos].decide_win(drawn):
                     board.add_meld(current_pos, [drawn])
                     finished_players.add(current_pos)
+                    win_records.append({'pos': current_pos, 'type': 'zimo', 'loser': None})
                     print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(current_pos)} 杠后自摸胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
                     if len(finished_players) >= 3:
                         print("三家胡牌，游戏结束。")
@@ -239,6 +248,8 @@ def main():
             result = check_pon_or_kan(board, discard, current_pos, agents, finished_players)
             if result and result[0] == "win":
                 finished_players.add(result[1])
+                win_records.append({'pos': winner_pos, 'type': 'ron', 'loser': current_pos})
+                print(f"🎉🎉🎉 {format_pos_name(result[1])} 荣胡了！ 🎉🎉🎉")
                 if len(finished_players) >= 3:
                     print("三家胡牌，游戏结束。")
                     game_over = True
@@ -259,6 +270,7 @@ def main():
                 print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(current_pos)} 自摸胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
                 board.add_meld(current_pos, [drawn])
                 finished_players.add(current_pos)
+                win_records.append({'pos': current_pos, 'type': 'zimo', 'loser': None})
                 if len(finished_players) >= 3:
                     print("三家胡牌，游戏结束。")
                     game_over = True
@@ -278,6 +290,8 @@ def main():
         if isinstance(result, tuple) and result[0] == "win":
             _, winner_pos, _ = result
             finished_players.add(winner_pos)
+            win_records.append({'pos': winner_pos, 'type': 'ron', 'loser': current_pos})
+            print(f"🎉🎉🎉 {format_pos_name(winner_pos)} 荣胡了！ 🎉🎉🎉")
             if len(finished_players) >= 3:
                 print("三家胡牌，游戏结束。")
                 game_over = True
@@ -300,26 +314,38 @@ def main():
     print("所有玩家的手牌：")
     print_full_state(board, agents)
     print("胡牌玩家有：")
-    for pos in finished_players:
+    for rec in win_records:
+        pos = rec['pos']
+        win_type = rec['type']
+        loser_pos = rec['loser']
         hand = board.get_hand(pos)
         melds = board.get_melds(pos)
-        if tianhu:
+        # 是否天胡、地胡可继续判断
+        if tianhu and pos == dealer:
             score, fans = get_fan_score(hand, melds, is_tianhu=True)
-        elif dihu:
+        elif dihu and pos != dealer:
             score, fans = get_fan_score(hand, melds, is_dihu=True)
         else:
             score, fans = get_fan_score(hand, melds)
-        score, fans = get_fan_score(hand, melds)
-        scores[pos] += score
+        # 结算分数
+        settle_results = settle_scores(
+            scores, pos, win_type, score, loser_pos=loser_pos, finished_players=finished_players
+        )
         score_logs[pos].append({
             "fans": fans,
             "score": score,
-            "tile": [str(t) for t in hand],   # 手牌字符串化
-            "melds": [ [str(t) for t in meld] for meld in melds ],  # 副露字符串化
-            "type": "自摸/荣和",  # 可根据实际区分
+            "tile": [str(t) for t in hand],
+            "melds": [[str(t) for t in meld] for meld in melds],
+            "type": "自摸" if win_type=="zimo" else "荣胡",
             "stage": round_counter
         })
-        print(f"{format_pos_name(pos)} 胡牌获得 {score} 分，番型：{'/'.join(fans)}")
+        print(f"{format_pos_name(pos)} {'自摸' if win_type=='zimo' else '荣胡'}获得 {score} 分，番型：{'/'.join(fans)}")
+        for p, delta in settle_results:
+            if delta > 0:
+                print(f"{format_pos_name(p)} 获得 {delta} 分")
+            else:
+                print(f"{format_pos_name(p)} 失去 {-delta} 分")
+
     recorder.record_game(scores, score_logs)
     recorder.save()
 

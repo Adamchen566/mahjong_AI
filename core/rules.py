@@ -423,3 +423,31 @@ def print_seen_matrix_chuan(board, agents, label="见牌矩阵"):
     print("└" + ("─"*col_width + "┴")* (man_border-1) + "─"*col_width + "╨" +
           ("─"*col_width + "┴")* (pin_border-man_border-1) + "─"*col_width + "╨" +
           ("─"*col_width + "┴")* (len(tile_order)-pin_border-1) + "─"*col_width + "┘\n")
+
+def settle_scores(scores: dict, winner_pos, win_type, score, loser_pos=None, finished_players=None):
+    """
+    根据胡牌类型结算分数。
+    - scores: {pos: 分数}
+    - winner_pos: 胡牌玩家
+    - win_type: 'zimo' 或 'ron'
+    - score: 结算分数（正数）
+    - loser_pos: 荣胡时的点炮者
+    - finished_players: 已胡牌玩家集合
+    """
+    if finished_players is None:
+        finished_players = set()
+    results = []
+    if win_type == "zimo":
+        # 除了已经胡了的，其他都要给分
+        for pos in scores:
+            if pos != winner_pos and pos not in finished_players:
+                scores[pos] -= score
+                results.append((pos, -score))
+        scores[winner_pos] += score * (len(scores) - 1 - len(finished_players))
+        results.append((winner_pos, score * (len(scores) - 1 - len(finished_players))))
+    elif win_type == "ron":
+        scores[loser_pos] -= score
+        scores[winner_pos] += score
+        results.append((loser_pos, -score))
+        results.append((winner_pos, score))
+    return results  # [(pos, delta), ...]

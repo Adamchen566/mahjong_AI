@@ -793,5 +793,126 @@
       ],
       "NORTH": []
     }
+  },
+  {
+    "scores": {
+      "EAST": 8,
+      "SOUTH": -8,
+      "WEST": 0,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [
+        {
+          "fans": [
+            "清一色",
+            "断幺九"
+          ],
+          "score": 8,
+          "tile": [
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man"
+          ],
+          "melds": [
+            [
+              "2man",
+              "2man",
+              "2man"
+            ],
+            [
+              "6man"
+            ]
+          ],
+          "type": "荣胡",
+          "stage": 18
+        }
+      ],
+      "SOUTH": [],
+      "WEST": [],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 0,
+      "SOUTH": 2,
+      "WEST": 0,
+      "NORTH": -2
+    },
+    "score_logs": {
+      "EAST": [],
+      "SOUTH": [
+        {
+          "fans": [
+            "鸡胡"
+          ],
+          "score": 1,
+          "tile": [
+            "6man",
+            "7man",
+            "8man",
+            "9man",
+            "5sou",
+            "5sou",
+            "5sou",
+            "7sou",
+            "8sou",
+            "9sou"
+          ],
+          "melds": [
+            [
+              "2sou",
+              "2sou",
+              "2sou"
+            ],
+            [
+              "6man"
+            ]
+          ],
+          "type": "荣胡",
+          "stage": 24
+        },
+        {
+          "fans": [
+            "鸡胡"
+          ],
+          "score": 1,
+          "tile": [
+            "6man",
+            "7man",
+            "8man",
+            "9man",
+            "5sou",
+            "5sou",
+            "5sou",
+            "7sou",
+            "8sou",
+            "9sou"
+          ],
+          "melds": [
+            [
+              "2sou",
+              "2sou",
+              "2sou"
+            ],
+            [
+              "6man"
+            ]
+          ],
+          "type": "荣胡",
+          "stage": 24
+        }
+      ],
+      "WEST": [],
+      "NORTH": []
+    }
   }
 ]

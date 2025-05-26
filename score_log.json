@@ -1,8 +1,162 @@
 [
   {
     "scores": {
-      "EAST": 4,
+      "EAST": 16,
       "SOUTH": 0,
+      "WEST": 0,
+      "NORTH": 2
+    },
+    "score_logs": {
+      "EAST": [
+        {
+          "fans": [
+            "门清",
+            "2根",
+            "断幺九"
+          ],
+          "score": 16,
+          "tile": [
+            "2man",
+            "2man",
+            "2man",
+            "2man",
+            "3man",
+            "4man",
+            "4man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "5man",
+            "6sou",
+            "6sou"
+          ],
+          "melds": [],
+          "type": "自摸/荣和",
+          "stage": 16
+        }
+      ],
+      "SOUTH": [],
+      "WEST": [],
+      "NORTH": [
+        {
+          "fans": [
+            "1根"
+          ],
+          "score": 2,
+          "tile": [
+            "9man",
+            "9man",
+            "4sou",
+            "4sou"
+          ],
+          "melds": [
+            [
+              "6pin",
+              "6pin",
+              "6pin"
+            ],
+            [
+              "7pin",
+              "7pin",
+              "7pin",
+              "7pin"
+            ],
+            [
+              "2sou",
+              "2sou",
+              "2sou"
+            ],
+            [
+              "4sou"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 16
+        }
+      ]
+    }
+  },
+  {
+    "scores": {
+      "EAST": 32,
+      "SOUTH": 0,
+      "WEST": 2,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [
+        {
+          "fans": [
+            "七对",
+            "清一色",
+            "断幺九"
+          ],
+          "score": 32,
+          "tile": [
+            "2man",
+            "2man",
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man",
+            "8man",
+            "8man"
+          ],
+          "melds": [],
+          "type": "自摸/荣和",
+          "stage": 13
+        }
+      ],
+      "SOUTH": [],
+      "WEST": [
+        {
+          "fans": [
+            "1根"
+          ],
+          "score": 2,
+          "tile": [
+            "7man",
+            "8man",
+            "9man",
+            "6pin",
+            "6pin",
+            "6pin",
+            "7pin"
+          ],
+          "melds": [
+            [
+              "4man",
+              "4man",
+              "4man",
+              "4man"
+            ],
+            [
+              "5man",
+              "5man",
+              "5man"
+            ],
+            [
+              "7pin"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 13
+        }
+      ],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 2,
+      "SOUTH": 2,
       "WEST": 0,
       "NORTH": 0
     },
@@ -10,40 +164,189 @@
       "EAST": [
         {
           "fans": [
-            "门清",
-            "清一色"
+            "断幺九"
           ],
-          "score": 4,
+          "score": 2,
           "tile": [
-            "2sou",
-            "3sou",
-            "4sou",
-            "5sou",
-            "6sou",
-            "7sou",
-            "3sou",
-            "3sou",
-            "7sou",
-            "7sou",
-            "7sou",
-            "5sou",
-            "5sou",
-            "5sou"
+            "2man",
+            "2man",
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man",
+            "8sou"
           ],
-          "melds": [],
+          "melds": [
+            [
+              "8sou"
+            ]
+          ],
           "type": "自摸/荣和",
-          "stage": 15
+          "stage": 12
         }
       ],
-      "SOUTH": [],
+      "SOUTH": [
+        {
+          "fans": [
+            "1根"
+          ],
+          "score": 2,
+          "tile": [
+            "8man",
+            "8man",
+            "9man",
+            "9man",
+            "9man"
+          ],
+          "melds": [
+            [
+              "7pin",
+              "7pin",
+              "7pin"
+            ],
+            [
+              "4pin",
+              "4pin",
+              "4pin"
+            ],
+            [
+              "7sou",
+              "7sou",
+              "7sou"
+            ],
+            [
+              "9man"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 12
+        }
+      ],
       "WEST": [],
       "NORTH": []
     }
   },
   {
     "scores": {
-      "EAST": 4,
-      "SOUTH": 1,
+      "EAST": 2,
+      "SOUTH": 4,
+      "WEST": 0,
+      "NORTH": 1
+    },
+    "score_logs": {
+      "EAST": [
+        {
+          "fans": [
+            "断幺九"
+          ],
+          "score": 2,
+          "tile": [
+            "2man",
+            "2man",
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man",
+            "8sou"
+          ],
+          "melds": [
+            [
+              "8sou"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 17
+        }
+      ],
+      "SOUTH": [
+        {
+          "fans": [
+            "清一色"
+          ],
+          "score": 4,
+          "tile": [
+            "4pin",
+            "4pin",
+            "9pin",
+            "9pin"
+          ],
+          "melds": [
+            [
+              "3pin",
+              "3pin",
+              "3pin"
+            ],
+            [
+              "5pin",
+              "5pin",
+              "5pin"
+            ],
+            [
+              "6pin",
+              "6pin",
+              "6pin"
+            ],
+            [
+              "4pin"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 17
+        }
+      ],
+      "WEST": [],
+      "NORTH": [
+        {
+          "fans": [
+            "鸡胡"
+          ],
+          "score": 1,
+          "tile": [
+            "1sou",
+            "1sou",
+            "1sou",
+            "2sou",
+            "2sou",
+            "5sou",
+            "5sou"
+          ],
+          "melds": [
+            [
+              "4sou",
+              "4sou",
+              "4sou"
+            ],
+            [
+              "8pin",
+              "8pin",
+              "8pin"
+            ],
+            [
+              "2sou"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 17
+        }
+      ]
+    }
+  },
+  {
+    "scores": {
+      "EAST": 2,
+      "SOUTH": 2,
       "WEST": 0,
       "NORTH": 0
     },
@@ -51,31 +354,83 @@
       "EAST": [
         {
           "fans": [
-            "门清",
-            "清一色"
+            "断幺九"
           ],
-          "score": 4,
+          "score": 2,
           "tile": [
-            "2sou",
-            "3sou",
-            "4sou",
-            "5sou",
-            "6sou",
-            "7sou",
-            "3sou",
-            "3sou",
-            "7sou",
-            "7sou",
-            "7sou",
-            "5sou",
-            "5sou",
-            "5sou"
+            "2man",
+            "2man",
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man",
+            "8sou"
           ],
-          "melds": [],
+          "melds": [
+            [
+              "8sou"
+            ]
+          ],
           "type": "自摸/荣和",
-          "stage": 9
+          "stage": 14
         }
       ],
+      "SOUTH": [
+        {
+          "fans": [
+            "1根"
+          ],
+          "score": 2,
+          "tile": [
+            "9man",
+            "9man",
+            "9pin",
+            "9pin"
+          ],
+          "melds": [
+            [
+              "1pin",
+              "1pin",
+              "1pin"
+            ],
+            [
+              "8sou",
+              "8sou",
+              "8sou",
+              "8sou"
+            ],
+            [
+              "2sou",
+              "2sou",
+              "2sou"
+            ],
+            [
+              "9man"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 14
+        }
+      ],
+      "WEST": [],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 0,
+      "SOUTH": 1,
+      "WEST": 0,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [],
       "SOUTH": [
         {
           "fans": [
@@ -83,32 +438,31 @@
           ],
           "score": 1,
           "tile": [
-            "6man",
-            "6man",
-            "7man",
-            "7man",
-            "7man",
-            "9sou",
-            "9sou"
+            "1man",
+            "1man",
+            "1man",
+            "5pin",
+            "5pin",
+            "7pin",
+            "7pin"
           ],
           "melds": [
             [
-              "1man",
-              "1man",
-              "1man"
+              "6sou",
+              "6sou",
+              "6sou"
             ],
             [
-              "3man",
-              "3man",
-              "3man",
-              "3man"
+              "8pin",
+              "8pin",
+              "8pin"
             ],
             [
-              "6man"
+              "7pin"
             ]
           ],
           "type": "自摸/荣和",
-          "stage": 9
+          "stage": 16
         }
       ],
       "WEST": [],
@@ -119,72 +473,102 @@
     "scores": {
       "EAST": 8,
       "SOUTH": 0,
-      "WEST": 1,
+      "WEST": 0,
       "NORTH": 0
     },
     "score_logs": {
       "EAST": [
         {
           "fans": [
-            "门清",
-            "清一色"
+            "七对",
+            "断幺九"
           ],
           "score": 8,
           "tile": [
-            "2sou",
-            "3sou",
-            "4sou",
-            "5sou",
-            "6sou",
-            "7sou",
-            "3sou",
-            "3sou",
-            "7sou",
-            "7sou",
-            "7sou",
-            "5sou",
-            "5sou",
-            "5sou"
+            "2man",
+            "2man",
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man",
+            "8sou"
           ],
-          "melds": [],
+          "melds": [
+            [
+              "8sou"
+            ]
+          ],
           "type": "自摸/荣和",
-          "stage": 19
+          "stage": 20
         }
       ],
+      "SOUTH": [],
+      "WEST": [],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 0,
+      "SOUTH": 0,
+      "WEST": 0,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [],
+      "SOUTH": [],
+      "WEST": [],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 0,
+      "SOUTH": 0,
+      "WEST": 2,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [],
       "SOUTH": [],
       "WEST": [
         {
           "fans": [
-            "鸡胡"
+            "断幺九"
           ],
-          "score": 1,
+          "score": 2,
           "tile": [
-            "8man",
-            "8man",
-            "9man",
-            "9man",
-            "8pin",
-            "8pin",
-            "8pin"
+            "3man",
+            "3man",
+            "7man",
+            "7man",
+            "3pin",
+            "3pin",
+            "3pin"
           ],
           "melds": [
             [
-              "1sou",
-              "1sou",
-              "1sou"
-            ],
-            [
-              "4pin",
               "4pin",
               "4pin",
               "4pin"
             ],
             [
-              "8man"
+              "6pin",
+              "6pin",
+              "6pin"
+            ],
+            [
+              "3man"
             ]
           ],
           "type": "自摸/荣和",
-          "stage": 19
+          "stage": 12
         }
       ],
       "NORTH": []
@@ -192,39 +576,13 @@
   },
   {
     "scores": {
-      "EAST": 2,
+      "EAST": 0,
       "SOUTH": 0,
       "WEST": 0,
       "NORTH": 1
     },
     "score_logs": {
-      "EAST": [
-        {
-          "fans": [
-            "门清"
-          ],
-          "score": 2,
-          "tile": [
-            "2man",
-            "2man",
-            "2man",
-            "5man",
-            "5man",
-            "5man",
-            "3pin",
-            "3pin",
-            "3pin",
-            "9pin",
-            "9pin",
-            "9pin",
-            "6sou",
-            "6sou"
-          ],
-          "melds": [],
-          "type": "自摸/荣和",
-          "stage": 23
-        }
-      ],
+      "EAST": [],
       "SOUTH": [],
       "WEST": [],
       "NORTH": [
@@ -234,68 +592,40 @@
           ],
           "score": 1,
           "tile": [
+            "3man",
+            "3man",
             "4man",
-            "4man",
-            "4man",
-            "1pin",
-            "1pin",
-            "1pin",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "8man",
+            "2sou",
+            "3sou",
+            "5sou",
             "6sou",
-            "6sou",
-            "8sou",
-            "8sou"
+            "7sou"
           ],
           "melds": [
             [
-              "5man",
-              "5man",
-              "5man"
-            ],
-            [
-              "6sou"
+              "1sou"
             ]
           ],
           "type": "自摸/荣和",
-          "stage": 23
+          "stage": 19
         }
       ]
     }
   },
   {
     "scores": {
-      "EAST": 2,
+      "EAST": 0,
       "SOUTH": 0,
       "WEST": 1,
       "NORTH": 0
     },
     "score_logs": {
-      "EAST": [
-        {
-          "fans": [
-            "门清"
-          ],
-          "score": 2,
-          "tile": [
-            "2man",
-            "2man",
-            "2man",
-            "5man",
-            "5man",
-            "5man",
-            "3pin",
-            "3pin",
-            "3pin",
-            "9pin",
-            "9pin",
-            "9pin",
-            "6sou",
-            "6sou"
-          ],
-          "melds": [],
-          "type": "自摸/荣和",
-          "stage": 11
-        }
-      ],
+      "EAST": [],
       "SOUTH": [],
       "WEST": [
         {
@@ -304,19 +634,111 @@
           ],
           "score": 1,
           "tile": [
-            "5sou",
-            "5sou",
-            "6sou",
-            "6sou",
-            "7sou",
-            "7sou",
-            "7sou"
+            "5man",
+            "5man",
+            "5man",
+            "9pin"
           ],
           "melds": [
             [
-              "8sou",
-              "8sou",
-              "8sou"
+              "2man",
+              "2man",
+              "2man"
+            ],
+            [
+              "3pin",
+              "3pin",
+              "3pin"
+            ],
+            [
+              "1pin",
+              "1pin",
+              "1pin"
+            ],
+            [
+              "9pin"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 18
+        }
+      ],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 0,
+      "SOUTH": 0,
+      "WEST": 0,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [],
+      "SOUTH": [],
+      "WEST": [],
+      "NORTH": []
+    }
+  },
+  {
+    "scores": {
+      "EAST": 2,
+      "SOUTH": 2,
+      "WEST": 4,
+      "NORTH": 0
+    },
+    "score_logs": {
+      "EAST": [
+        {
+          "fans": [
+            "断幺九"
+          ],
+          "score": 2,
+          "tile": [
+            "2man",
+            "2man",
+            "3man",
+            "3man",
+            "4man",
+            "4man",
+            "5man",
+            "5man",
+            "6man",
+            "6man",
+            "7man",
+            "7man",
+            "2sou"
+          ],
+          "melds": [
+            [
+              "2sou"
+            ]
+          ],
+          "type": "自摸/荣和",
+          "stage": 13
+        }
+      ],
+      "SOUTH": [
+        {
+          "fans": [
+            "1根"
+          ],
+          "score": 2,
+          "tile": [
+            "7man",
+            "9man",
+            "9man",
+            "9man",
+            "6pin",
+            "6pin",
+            "6pin"
+          ],
+          "melds": [
+            [
+              "3man",
+              "3man",
+              "3man",
+              "3man"
             ],
             [
               "4man",
@@ -324,134 +746,51 @@
               "4man"
             ],
             [
-              "7sou"
+              "7man"
             ]
           ],
           "type": "自摸/荣和",
-          "stage": 11
+          "stage": 13
         }
       ],
-      "NORTH": []
-    }
-  },
-  {
-    "scores": {
-      "EAST": 2,
-      "SOUTH": 0,
-      "WEST": 0,
-      "NORTH": 0
-    },
-    "score_logs": {
-      "EAST": [
+      "WEST": [
         {
           "fans": [
-            "门清"
-          ],
-          "score": 2,
-          "tile": [
-            "2man",
-            "2man",
-            "2man",
-            "3man",
-            "3man",
-            "3man",
-            "4man",
-            "4man",
-            "4man",
-            "5man",
-            "5man",
-            "5man",
-            "6sou",
-            "6sou"
-          ],
-          "melds": [],
-          "type": "自摸/荣和",
-          "stage": 9
-        }
-      ],
-      "SOUTH": [],
-      "WEST": [],
-      "NORTH": []
-    }
-  },
-  {
-    "scores": {
-      "EAST": 2,
-      "SOUTH": 0,
-      "WEST": 0,
-      "NORTH": 0
-    },
-    "score_logs": {
-      "EAST": [
-        {
-          "fans": [
-            "门清"
-          ],
-          "score": 2,
-          "tile": [
-            "2man",
-            "2man",
-            "2man",
-            "3man",
-            "3man",
-            "3man",
-            "4man",
-            "4man",
-            "4man",
-            "5man",
-            "5man",
-            "5man",
-            "6sou",
-            "6sou"
-          ],
-          "melds": [],
-          "type": "自摸/荣和",
-          "stage": 19
-        }
-      ],
-      "SOUTH": [],
-      "WEST": [],
-      "NORTH": []
-    }
-  },
-  {
-    "scores": {
-      "EAST": 4,
-      "SOUTH": 0,
-      "WEST": 0,
-      "NORTH": 0
-    },
-    "score_logs": {
-      "EAST": [
-        {
-          "fans": [
-            "碰碰胡",
-            "门清"
+            "2根"
           ],
           "score": 4,
           "tile": [
-            "2man",
-            "2man",
-            "2man",
-            "3man",
-            "3man",
-            "3man",
-            "4man",
-            "4man",
-            "4man",
-            "5man",
-            "5man",
-            "5man",
-            "6sou",
-            "6sou"
+            "8pin",
+            "9sou",
+            "9sou",
+            "9sou"
           ],
-          "melds": [],
+          "melds": [
+            [
+              "4sou",
+              "4sou",
+              "4sou",
+              "4sou"
+            ],
+            [
+              "6man",
+              "6man",
+              "6man"
+            ],
+            [
+              "7sou",
+              "7sou",
+              "7sou",
+              "7sou"
+            ],
+            [
+              "8pin"
+            ]
+          ],
           "type": "自摸/荣和",
-          "stage": 15
+          "stage": 13
         }
       ],
-      "SOUTH": [],
-      "WEST": [],
       "NORTH": []
     }
   }

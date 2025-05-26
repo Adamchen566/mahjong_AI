@@ -13,6 +13,7 @@ recorder = ScoreRecorder("score_log.json")
 recorder.load()  # 启动时读取历史数据
 
 def main():
+    game_over = False
     board = MahjongBoard(rule="chuan")
     board.shuffle_and_deal()
     board.sort_all_hands()
@@ -48,22 +49,13 @@ def main():
     # 定缺
     dingque_phase(board, agents)
 
-    # 作弊：东家手牌设为碰碰胡
-    board.hands[WindPosition.EAST] = [
-        Tile(Suit.MANZU, 2), Tile(Suit.MANZU, 2), Tile(Suit.MANZU, 2),  # 刻1
-        Tile(Suit.MANZU, 3), Tile(Suit.MANZU, 3), Tile(Suit.MANZU, 3),  # 刻2
-        Tile(Suit.MANZU, 4), Tile(Suit.MANZU, 4), Tile(Suit.MANZU, 4),  # 刻3
-        Tile(Suit.MANZU, 5), Tile(Suit.MANZU, 5), Tile(Suit.MANZU, 5),  # 刻4
-        Tile(Suit.SOUZU, 6), Tile(Suit.SOUZU, 6),                       # 对子
-    ]
-
     # 查天胡
     hand = board.get_hand(dealer)
     melds = board.get_melds(dealer)
     print(f"\n检查{format_pos_name(dealer)}是否天胡, 缺门是{agents[dealer].missing_suit}")
     tianhu = dihu = False
     first_discard = None
-    if can_win_standard(hand, melds):
+    if can_win_all(hand, melds):
         if agents[dealer].decide_win(None):
             print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dealer)} 天胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
             finished_players.add(dealer)
@@ -91,7 +83,7 @@ def main():
             if dihu_pos == dealer:
                 continue
             print(f"检查 {format_pos_name(dihu_pos)} 是否地胡 {color_tile(first_discard)}")
-            if can_win_standard(board.get_hand(dihu_pos), board.get_melds(dihu_pos), first_discard):
+            if can_win_all(board.get_hand(dihu_pos), board.get_melds(dihu_pos), first_discard):
                 if agents[dihu_pos].decide_win(first_discard):
                     print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(dihu_pos)} 地胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
                     board.add_meld(dihu_pos, [first_discard])
@@ -100,6 +92,16 @@ def main():
                     last_round_starter = dihu_pos
                     dihu = True
 
+    # 作弊发牌
+    board.hands[WindPosition.EAST] = [
+        Tile(Suit.MANZU, 2), Tile(Suit.MANZU, 2),
+        Tile(Suit.MANZU, 3), Tile(Suit.MANZU, 3),
+        Tile(Suit.MANZU, 4), Tile(Suit.MANZU, 4),
+        Tile(Suit.MANZU, 5), Tile(Suit.MANZU, 5),
+        Tile(Suit.MANZU, 6), Tile(Suit.MANZU, 6),
+        Tile(Suit.MANZU, 7), Tile(Suit.MANZU, 7),
+        Tile(Suit.SOUZU, 2),
+    ]
     # 跳过已胡玩家
     while current_pos in finished_players:
         current_pos = current_pos.next()
@@ -116,7 +118,7 @@ def main():
             last_round_starter = None
 
         # 摸牌
-        drawn = board.draw_tile(current_pos)
+        drawn = drawn = board.draw_tile(current_pos)
         print(f"{format_pos_name(current_pos)} 摸牌: {color_tile(drawn)}")
         print(f"剩余牌数: {len(board.wall)}")
         board.sort_hand(current_pos)
@@ -162,7 +164,8 @@ def main():
                         print(f"🎉🎉🎉 {format_pos_name(current_pos)} 杠后自摸胡了！ 🎉🎉🎉")
                         if len(finished_players) >= 3:
                             print("三家胡牌，游戏结束。")
-                            return
+                            game_over = True
+                            break
                         current_pos = current_pos.next()
                         last_round_starter = current_pos
                         continue
@@ -175,7 +178,8 @@ def main():
                     finished_players.add(result[1])
                     if len(finished_players) >= 3:
                         print("三家胡牌，游戏结束。")
-                        return
+                        game_over = True
+                        break
                     current_pos = result[1].next()
                     last_round_starter = current_pos
                     continue
@@ -198,7 +202,8 @@ def main():
                     finished_players.add(result[1])
                     if len(finished_players) >= 3:
                         print("三家胡牌，游戏结束。")
-                        return
+                        game_over = True
+                        break
                     current_pos = result[1].next()
                     last_round_starter = current_pos
                     continue
@@ -236,7 +241,8 @@ def main():
                 finished_players.add(result[1])
                 if len(finished_players) >= 3:
                     print("三家胡牌，游戏结束。")
-                    return
+                    game_over = True
+                    break
                 current_pos = result[1].next()
                 last_round_starter = current_pos
                 continue
@@ -248,14 +254,15 @@ def main():
 
         # 检查是否自摸
         print(f"{format_pos_name(current_pos)}检查是否自摸")
-        if can_win_standard(board.get_hand(current_pos), board.get_melds(current_pos)):
+        if can_win_all(board.get_hand(current_pos), board.get_melds(current_pos), drawn):
             if agents[current_pos].decide_win(drawn):
                 print(f"🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉 {format_pos_name(current_pos)} 自摸胡了！ 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉")
                 board.add_meld(current_pos, [drawn])
                 finished_players.add(current_pos)
                 if len(finished_players) >= 3:
                     print("三家胡牌，游戏结束。")
-                    return
+                    game_over = True
+                    break
                 current_pos = current_pos.next()
                 last_round_starter = current_pos
                 continue
@@ -273,6 +280,7 @@ def main():
             finished_players.add(winner_pos)
             if len(finished_players) >= 3:
                 print("三家胡牌，游戏结束。")
+                game_over = True
                 break
             current_pos = winner_pos.next()
             last_round_starter = current_pos

@@ -1,4 +1,64 @@
-from collections import Counter
+from core.rules import *
+
+def get_fan_score(hand, melds, is_tianhu=False, is_dihu=False):
+    fans = []
+    base_score = 1
+    fan_count = 0
+
+    if is_dragon_seven_pairs(hand, melds):
+        fan_count += 3
+        fans.append("龙七对")
+        if is_qing_yi_se(hand, melds):
+            fan_count += 2
+            fans.append("清一色")
+        if is_duan_yao_jiu(hand, melds):
+            fan_count += 1
+            fans.append("断幺九")
+        fan_count = min(fan_count, 5)
+        score = base_score * (2 ** fan_count)
+        return score, fans
+    elif is_seven_pairs(hand, melds):
+        fan_count += 2
+        fans.append("七对")
+        if is_qing_yi_se(hand, melds):
+            fan_count += 2
+            fans.append("清一色")
+        if is_duan_yao_jiu(hand, melds):
+            fan_count += 1
+            fans.append("断幺九")
+        fan_count = min(fan_count, 5)
+        score = base_score * (2 ** fan_count)
+        return score, fans
+
+    # 普通标准胡牌
+    if is_tianhu:
+        fan_count += 5
+        fans.append("天胡")
+    elif is_dihu:
+        fan_count += 5
+        fans.append("地胡")
+    if is_peng_peng_hu(hand, melds):
+        fan_count += 1
+        fans.append("碰碰胡")
+    if is_men_qing(melds):
+        fan_count += 1
+        fans.append("门清")
+    if is_qing_yi_se(hand, melds):
+        fan_count += 2
+        fans.append("清一色")
+    yi_gen_cnt = count_yi_gen(hand, melds)
+    if yi_gen_cnt > 0:
+        fan_count += yi_gen_cnt
+        fans.append(f"{yi_gen_cnt}根")
+    if is_duan_yao_jiu(hand, melds):
+        fan_count += 1
+        fans.append("断幺九")
+    if not fans:
+        fans = ["鸡胡"]
+    fan_count = min(fan_count, 5)
+    score = base_score * (2 ** fan_count)
+    return score, fans
+
 
 def is_peng_peng_hu(hand, melds):
     """
@@ -51,29 +111,37 @@ def is_qing_yi_se(hand, melds):
             suits.add(t.suit.value)
     return len(suits) == 1 and len(suits) != 0
 
-def get_fan_score(hand, melds, is_tianhu=False, is_dihu=False):
+def count_yi_gen(hand, melds):
     """
-    返回：最终得分（2^番数，番数最多5），以及所有番型名字
+    返回“根”的数量。
+    hand: 手牌列表
+    melds: 副露区（明刻、杠等）
     """
-    fans = []
-    base_score = 1
-    fan_count = 0
-    if is_tianhu:
-        return 32, ["天胡"]
-    if is_dihu:
-        return 32, ["地胡"]
-    if is_peng_peng_hu(hand, melds):
-        fan_count += 1
-        fans.append("碰碰胡")
-    if is_men_qing(melds):
-        fan_count += 1
-        fans.append("门清")
-    if is_qing_yi_se(hand, melds):
-        fan_count += 2
-        fans.append("清一色")
-    if not fans:
-        fans = ["鸡胡"]
-    # 番数上限5番
-    fan_count = min(fan_count, 5)
-    score = base_score * (2 ** fan_count)
-    return score, fans
+    from collections import Counter
+    all_tiles = list(hand)
+    for meld in melds:
+        all_tiles += meld
+    c = Counter(all_tiles)
+    return sum(1 for v in c.values() if v >= 4)
+
+def is_duan_yao_jiu(hand, melds):
+    """
+    断幺九：手牌和副露都不含1m/9m/1p/9p/1s/9s
+    """
+    yao_jiu = set([
+        ("man", 1), ("man", 9),
+        ("pin", 1), ("pin", 9),
+        ("sou", 1), ("sou", 9)
+    ])
+    def is_yaojiu(tile):
+        return (tile.suit.value, tile.value) in yao_jiu
+    # 检查手牌
+    for t in hand:
+        if is_yaojiu(t):
+            return False
+    # 检查副露
+    for meld in melds:
+        for t in meld:
+            if is_yaojiu(t):
+                return False
+    return True

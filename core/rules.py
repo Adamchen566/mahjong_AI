@@ -7,6 +7,7 @@ from collections import Counter
 import random
 import json
 from enum import Enum
+from collections import Counter
 
 suit_map = {
     'bamboo': 'SOU',
@@ -24,6 +25,33 @@ honors = {
     'green_dragon': 'GREEN',
     'white_dragon': 'WHITE',
 }
+
+def reconstruct_seven_pairs_hand(hand, melds):
+    if not melds:
+        return hand[:]
+    # 只允许副露最后一组长度为2，其余必须为空
+    if all(len(m) == 0 for m in melds[:-1]) and len(melds[-1]) == 2:
+        return hand[:] + melds[-1][:]
+    return None
+
+def is_seven_pairs(hand, melds):
+    from collections import Counter
+    hand_for_check = reconstruct_seven_pairs_hand(hand, melds)
+    if hand_for_check is None or len(hand_for_check) != 14:
+        return False
+    c = Counter(hand_for_check)
+    pairs = [t for t, n in c.items() if n == 2]
+    return len(pairs) == 7 and sum(c.values()) == 14
+
+def is_dragon_seven_pairs(hand, melds):
+    from collections import Counter
+    hand_for_check = reconstruct_seven_pairs_hand(hand, melds)
+    if hand_for_check is None or len(hand_for_check) != 14:
+        return False
+    c = Counter(hand_for_check)
+    pair_count = sum(1 for v in c.values() if v == 2)
+    quad_count = sum(1 for v in c.values() if v == 4)
+    return pair_count == 6 and quad_count == 1 and sum(c.values()) == 14
 
 def can_win_standard(
     hand: List[Tile],
@@ -65,6 +93,9 @@ def can_win_standard(
         if _can_form_n_melds(remaining, needed_sets):
             return True
     return False
+
+def can_win_all(hand, melds, win_tile=None):
+    return is_seven_pairs(hand, melds) or is_dragon_seven_pairs(hand, melds) or can_win_standard(hand, melds, win_tile)
 
 def _can_form_n_melds(tiles: list[Tile], sets_left: int) -> bool:
     """辅助：tiles 必须能拆出 sets_left 个面子（顺子或刻子）且无剩余。"""

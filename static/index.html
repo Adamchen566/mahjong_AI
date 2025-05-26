@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><title>Mahjong Online</title></head>
+<body>
+  <input id="room" placeholder="Room code">
+  <button onclick="joinRoom()">Join Room</button>
+  <div id="game"></div>
+  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <script>
+    var socket = io();
+    function joinRoom() {
+      socket.emit('join', {room: document.getElementById('room').value});
+    }
+    socket.on('player_joined', function(data) {
+      document.getElementById('game').innerText = "Players: " + data.players.length;
+    });
+    socket.on('game_update', function(data) {
+      document.getElementById('game').innerText = JSON.stringify(data);
+    });
+  </script>
+</body>
+</html>

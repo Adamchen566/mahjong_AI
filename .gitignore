@@ -34,3 +34,6 @@ node_modules/
 Thumbs.db
 .idea/
 .vscode/
+
+# 本地工具配置
+.claude/

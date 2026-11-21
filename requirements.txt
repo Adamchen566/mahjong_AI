@@ -1,0 +1,7 @@
+# 规则引擎和规则型 AI 不需要任何第三方库。
+# 下面是对局软件(python -m server)和测试用的。
+fastapi>=0.110
+uvicorn>=0.30
+wsproto>=1.2
+pytest>=8
+httpx>=0.27

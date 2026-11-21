@@ -40,10 +40,15 @@ class SeatPlan:
 
     learners: 几个座位交给外部策略(1..4),每局随机挑座位。
     opponents: 其余座位用哪些固定策略(ai.AGENTS 里的名字),每个座位随机挑一个。
+    pool_size, pool_prob: 对手池。每局有 pool_prob 的概率改成"1 到 2 个座位是要训练的策略(编号 0),
+        其余座位各从编号 1..pool_size 里抽一个"。这些编号对应主进程里的其他网络(旧版本等),
+        它们的决定也走批量推理,但不记轨迹。
     """
 
     learners: int = NUM_SEATS
     opponents: Tuple[str, ...] = ("rule",)
+    pool_size: int = 0
+    pool_prob: float = 0.0
 
     def __post_init__(self) -> None:
         if not 1 <= self.learners <= NUM_SEATS:
@@ -66,6 +71,7 @@ class Episode:
     logp: np.ndarray  # (T,) float32: 外部策略给的,原样带回
     value: np.ndarray  # (T,) float32: 同上
     oracle: Optional[np.ndarray] = None  # (T, 16, 27) uint8,开了 oracle 才有
+    opponents: int = 0  # 这一局里有几个座位不是要训练的策略
 
     def __len__(self) -> int:
         return len(self.action)
@@ -76,6 +82,7 @@ class Batch:
     obs: np.ndarray  # (B, C, 27) uint8
     mask: np.ndarray  # (B, 115) bool
     oracle: Optional[np.ndarray] = None  # (B, 16, 27) uint8
+    policy: Optional[np.ndarray] = None  # (B,) int8: 这个局面该由哪个策略来决定,0 是要训练的那个
 
 
 @dataclass
@@ -126,9 +133,12 @@ class BatchEnv:
         self.obs = np.zeros((num_games, *OBS_SHAPE), dtype=np.uint8)
         self.mask = np.zeros((num_games, NUM_ACTIONS), dtype=np.bool_)
         self.oracle = np.zeros((num_games, *ORACLE_SHAPE), dtype=np.uint8) if oracle else None
+        self.policy = np.zeros(num_games, dtype=np.int8)
 
         self.games: List[Game] = [None] * num_games  # type: ignore[list-item]
         self._seeds = [0] * num_games
+        self._policies: List[List[int]] = [[] for _ in range(num_games)]  # 每个座位的策略编号,-1 = 固定策略
+        self._opponents = [0] * num_games
         self._controllers: List[List[Optional[Agent]]] = [[] for _ in range(num_games)]
         self._tracks: List[List[Optional[_Track]]] = [[] for _ in range(num_games)]
         for i in range(num_games):
@@ -139,7 +149,7 @@ class BatchEnv:
 
     def observe(self) -> Batch:
         """每个位置上当前待决策的局面。数组是环境内部的缓冲区,下一次 step 会改写它。"""
-        return Batch(self.obs, self.mask, self.oracle)
+        return Batch(self.obs, self.mask, self.oracle, self.policy)
 
     def step(
         self,
@@ -153,14 +163,15 @@ class BatchEnv:
             game = self.games[i]
             seat = game.current
             track = self._tracks[i][seat]
-            track.obs.append(self.obs[i].copy())
-            track.mask.append(self.mask[i].copy())
-            if self.oracle is not None:
-                track.oracle.append(self.oracle[i].copy())
-            track.action.append(int(actions[i]))
-            track.score.append(game.scores[seat])
-            track.logp.append(float(logp[i]) if logp is not None else 0.0)
-            track.value.append(float(value[i]) if value is not None else 0.0)
+            if track is not None:  # 对手池里的策略不记轨迹
+                track.obs.append(self.obs[i].copy())
+                track.mask.append(self.mask[i].copy())
+                if self.oracle is not None:
+                    track.oracle.append(self.oracle[i].copy())
+                track.action.append(int(actions[i]))
+                track.score.append(game.scores[seat])
+                track.logp.append(float(logp[i]) if logp is not None else 0.0)
+                track.value.append(float(value[i]) if value is not None else 0.0)
             game.step(int(actions[i]))
             self.stats.decisions += 1
             self._advance(i, done)
@@ -173,11 +184,20 @@ class BatchEnv:
         self._next_seed += self._seed_step
         self._seeds[i] = seed
         self.games[i] = Game(config=self.config, seed=seed, dealer=seed % NUM_SEATS, record_events=False)
-        learners = set(self._rng.sample(range(NUM_SEATS), self.plan.learners))
-        self._controllers[i] = [
-            None if s in learners else make_agent(self._rng.choice(self.plan.opponents), seed * 10 + s)
-            for s in range(NUM_SEATS)
-        ]
+        plan = self.plan
+        rng = self._rng
+        if plan.pool_size and rng.random() < plan.pool_prob:
+            learners = set(rng.sample(range(NUM_SEATS), rng.choice((1, 2))))
+            self._controllers[i] = [None] * NUM_SEATS
+            self._policies[i] = [0 if s in learners else rng.randint(1, plan.pool_size) for s in range(NUM_SEATS)]
+        else:
+            learners = set(rng.sample(range(NUM_SEATS), plan.learners))
+            self._controllers[i] = [
+                None if s in learners else make_agent(rng.choice(plan.opponents), seed * 10 + s)
+                for s in range(NUM_SEATS)
+            ]
+            self._policies[i] = [0 if s in learners else -1 for s in range(NUM_SEATS)]
+        self._opponents[i] = NUM_SEATS - len(learners)
         self._tracks[i] = [_Track() if s in learners else None for s in range(NUM_SEATS)]
 
     def _advance(self, i: int, done: List[Episode]) -> None:
@@ -203,6 +223,7 @@ class BatchEnv:
                 row[game.legal_action_ids()] = True
                 if self.oracle is not None:
                     self.oracle[i] = encode_oracle(game, seat)
+                self.policy[i] = self._policies[i][seat]
                 return
             self._finish(i, done)
             self._new_game(i)
@@ -228,6 +249,7 @@ class BatchEnv:
                     logp=np.asarray(track.logp, dtype=np.float32),
                     value=np.asarray(track.value, dtype=np.float32),
                     oracle=np.stack(track.oracle) if self.oracle is not None else None,
+                    opponents=self._opponents[i],
                 )
             )
 
@@ -237,14 +259,14 @@ class BatchEnv:
 
 def _worker(conn: Any, kwargs: dict) -> None:
     env = BatchEnv(**kwargs)
-    conn.send((env.obs, env.mask, env.oracle, [], env.stats))
+    conn.send((env.obs, env.mask, env.oracle, env.policy, [], env.stats))
     while True:
         msg = conn.recv()
         if msg is None:
             break
         actions, logp, value = msg
         episodes = env.step(actions, logp, value)
-        conn.send((env.obs, env.mask, env.oracle, episodes, env.stats))
+        conn.send((env.obs, env.mask, env.oracle, env.policy, episodes, env.stats))
     conn.close()
 
 
@@ -267,6 +289,7 @@ class ParallelEnv:
         self.obs = np.zeros((self.n, *OBS_SHAPE), dtype=np.uint8)
         self.mask = np.zeros((self.n, NUM_ACTIONS), dtype=np.bool_)
         self.oracle = np.zeros((self.n, *ORACLE_SHAPE), dtype=np.uint8) if oracle else None
+        self.policy = np.zeros(self.n, dtype=np.int8)
         self._worker_stats = [EnvStats() for _ in range(num_workers)]
 
         ctx = get_context("spawn")
@@ -298,7 +321,7 @@ class ParallelEnv:
         return total
 
     def observe(self) -> Batch:
-        return Batch(self.obs, self.mask, self.oracle)
+        return Batch(self.obs, self.mask, self.oracle, self.policy)
 
     def step(
         self,
@@ -318,10 +341,11 @@ class ParallelEnv:
         return episodes
 
     def _receive(self, w: int) -> List[Episode]:
-        obs, mask, oracle, episodes, stats = self._conns[w].recv()
+        obs, mask, oracle, policy, episodes, stats = self._conns[w].recv()
         sl = slice(w * self.per, (w + 1) * self.per)
         self.obs[sl] = obs
         self.mask[sl] = mask
+        self.policy[sl] = policy
         if self.oracle is not None:
             self.oracle[sl] = oracle
         self._worker_stats[w] = stats

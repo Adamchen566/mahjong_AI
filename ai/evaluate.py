@@ -24,6 +24,9 @@ from chuanma.runner import play_game
 from . import AGENTS, make_agent
 
 
+EVAL_SEED = 10_000_000  # 评估用的牌从这里起,不和生成训练数据用的种子重叠
+
+
 @dataclass
 class DealResult:
     scores: List[int]  # 待测策略坐 0..3 号位时各自的得分
@@ -139,10 +142,11 @@ def evaluate(
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m ai.evaluate", description="同牌对比评估")
-    parser.add_argument("--candidate", choices=sorted(AGENTS), default="rule")
-    parser.add_argument("--baseline", choices=sorted(AGENTS), default="simple")
+    names = "、".join(sorted(AGENTS))
+    parser.add_argument("--candidate", default="rule", help=f"{names},或一个 .pt 模型文件")
+    parser.add_argument("--baseline", default="simple", help="同上")
     parser.add_argument("-n", "--num-deals", type=int, default=500, help="多少副牌(每副打 4 局)")
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=EVAL_SEED, help="第一副牌的种子;默认和训练数据的种子错开")
     parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):

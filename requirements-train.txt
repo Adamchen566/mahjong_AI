@@ -1,0 +1,6 @@
+# 训练环境和神经网络训练(阶段 4b–4d)用的。
+# torch 要装带 CUDA 的版本。PyPI 上默认给 Windows 的是 CPU 版,所以要指定下载地址:
+#   pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cu126
+# 装完用 python -c "import torch; print(torch.cuda.is_available())" 确认是 True。
+numpy>=2.0
+torch>=2.7

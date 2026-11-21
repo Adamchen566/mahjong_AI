@@ -22,10 +22,14 @@ AGENT_LABELS: Dict[str, str] = {
 
 
 def make_agent(name: str, seed: Optional[int] = None) -> Agent:
-    try:
+    """name 是登记表里的名字,或者一个模型文件(.pt)的路径。"""
+    if name in AGENTS:
         return AGENTS[name](seed)
-    except KeyError:
-        raise ValueError(f"未知的策略 {name!r},可选: {sorted(AGENTS)}") from None
+    if name.endswith(".pt"):
+        from .net_agent import NetAgent  # 用到模型时才导入 torch,对局软件不必装它
+
+        return NetAgent(name, seed)
+    raise ValueError(f"未知的策略 {name!r},可选: {sorted(AGENTS)},或一个 .pt 模型文件")
 
 
 __all__ = ["AGENTS", "AGENT_LABELS", "RuleAgent", "make_agent"]

@@ -47,25 +47,25 @@ class SimpleAgent:
         counts = tiles_to_counts(obs["hand"])
         if ActionType.CHOOSE_VOID in by_type:
             # 缺张数最少的一门
-            return min(by_type[ActionType.CHOOSE_VOID], key=lambda a: (_suit_size(counts, a.tile), a.tile))
+            return min(by_type[ActionType.CHOOSE_VOID], key=lambda a: (suit_size(counts, a.tile), a.tile))
         if ActionType.EXCHANGE in by_type:
             options = by_type[ActionType.EXCHANGE]
             given = obs["exchange"]["given"]
             if not given:
                 # 第一张决定花色: 选张数最少(但够三张)的那门
-                suit = min({a.tile // NUM_RANKS for a in options}, key=lambda s: (_suit_size(counts, s), s))
+                suit = min({a.tile // NUM_RANKS for a in options}, key=lambda s: (suit_size(counts, s), s))
                 options = [a for a in options if a.tile // NUM_RANKS == suit]
-            return min(options, key=lambda a: (_keep_value(counts, a.tile), a.tile))
+            return min(options, key=lambda a: (keep_value(counts, a.tile), a.tile))
         if ActionType.DISCARD in by_type:
-            return min(by_type[ActionType.DISCARD], key=lambda a: (_keep_value(counts, a.tile), a.tile))
+            return min(by_type[ActionType.DISCARD], key=lambda a: (keep_value(counts, a.tile), a.tile))
         return by_type[ActionType.PASS][0]
 
 
-def _suit_size(counts: List[int], suit: int) -> int:
+def suit_size(counts: List[int], suit: int) -> int:
     return sum(counts[suit * NUM_RANKS : (suit + 1) * NUM_RANKS])
 
 
-def _keep_value(counts: List[int], tile: int) -> int:
+def keep_value(counts: List[int], tile: int) -> int:
     """一张牌留在手里的价值: 成对/成刻、有邻张的牌更值得留。"""
     suit, idx = divmod(tile, NUM_RANKS)
     base = suit * NUM_RANKS

@@ -4,36 +4,86 @@
 
 | 目标 | 内容 | 状态 |
 |---|---|---|
-| 1. 可使用的麻将软件 | 浏览器里 1 人对 3 个电脑,完整打一局并结算 | 未开始(阶段 2) |
-| 2. 训练 AI | 规则型 AI 打底,再用自我对弈强化学习 | 未开始(阶段 4) |
-| 3. AI 加入对局 | 训练出的模型作为不同难度的对手坐进牌局 | 未开始(阶段 5) |
-| 地基:规则引擎 | 无界面、可复现的川麻状态机,三个目标共用 | **已完成(阶段 0、1)** |
+| 1. 可使用的麻将软件 | 浏览器里 1 人对 3 个电脑,完整打一局并结算 | **已完成(阶段 2)** |
+| 2. 训练 AI | 规则型 AI 打底,再用自我对弈强化学习 | 规则型 AI 已完成(阶段 4a);神经网络未开始 |
+| 3. AI 加入对局 | 训练出的模型作为不同难度的对手坐进牌局 | 规则型 AI 已经可以选作对手;训练模型未开始 |
+| 地基:规则引擎 | 无界面、可复现的川麻状态机,三个目标共用 | 已完成(阶段 0、1) |
 
 联机对战不在当前范围内。完整计划见 [docs/roadmap.md](docs/roadmap.md)。
 
-## 现在能做什么
+## 打一局
 
-规则引擎 `chuanma` 已经可用,纯 Python 标准库,没有第三方依赖。
+第一次用之前装依赖、构建界面(只需一次):
+
+```bash
+pip install -r requirements.txt
+```
+
+```bash
+cd frontend
+```
+
+```bash
+npm install
+```
+
+```bash
+npm run build
+```
+
+之后每次只要在项目根目录运行:
+
+```bash
+python -m server
+```
+
+浏览器会自动打开 `http://127.0.0.1:8000`。选对手水平,开一桌。
+
+| 界面功能 | 说明 |
+|---|---|
+| 换三张 | 点三张同花色的牌,再点"换出这三张" |
+| 定缺 | 三个按钮,各自标着你手里有几张 |
+| 出牌 | 点一张牌选中,再点一次打出;不能打的牌会变暗 |
+| 碰、杠、胡、过 | 能做的时候才出现按钮 |
+| 结算 | 每局结束弹出记分单:谁胡了什么、每一笔分、累计分;可以收起来看四家摊开的牌 |
+| 连打多局 | 轮流坐庄,累计积分;刷新页面会接着原来的牌局 |
+| 牌谱 | 每局自动存到 `records/`;可以逐步回放,四家的牌都是明的 |
+| 声音 | 出牌、摸牌、碰、杠、胡、一局结束各有音效;能碰杠胡时有提醒声。侧栏底部可以关,选择会记住 |
+| 缺门 | 各家缺哪门用符号显示在牌桌中央:红色"万"、蓝色圆饼(筒)、绿色竹节(条),加一道斜杠 |
+
+| 启动参数 | 作用 |
+|---|---|
+| `--port 9000` | 换端口 |
+| `--delay 0.3` | 电脑每步之前停顿几秒(默认 0.7) |
+| `--no-browser` | 不自动打开浏览器 |
+| `--seed 1` | 固定发牌,调试用 |
+
+## 电脑对手
+
+| 名称 | 打法 | 实力 |
+|---|---|---|
+| 简单 `simple` | 能胡就胡、能碰杠就碰杠,丢最孤立的牌 | 基准 |
+| 规则型 `rule` | 算向听数和有效进张,只在有用时碰牌,听牌时选剩余张数 × 得分最大的听法 | 对 3 个"简单":每局平均多赢 0.72 分(95% 置信区间 +0.52 到 +0.91,4800 局同牌对比),胡牌率 79% |
+
+比较两个策略:
+
+```bash
+python -m ai.evaluate --candidate rule --baseline simple -n 1000 --workers 12
+```
+
+同一副牌打 4 次,待测策略轮流坐 4 个座位,抵消发牌运气。
+
+## 只用引擎
+
+规则引擎 `chuanma` 是纯 Python 标准库,没有第三方依赖。
 
 ```bash
 python -m chuanma play --seed 1
 ```
 
-四个内置的简单策略打一局,逐步打印摸牌、出牌、碰杠、胡牌和每一笔分数。
-
 ```bash
 python -m chuanma simulate -n 2000
 ```
-
-批量对局,输出速度、胡牌率、平均得分。
-
-```bash
-python -m pytest
-```
-
-跑全部测试(需要 `pip install pytest`)。
-
-在代码里使用:
 
 ```python
 from chuanma import Game, SimpleAgent
@@ -60,24 +110,41 @@ print(game.scores, game.wins)
 
 各地规则有出入,有分歧的地方都是配置项。确切的规则、番表和没实现的部分见 [docs/rules.md](docs/rules.md)。
 
+## 测试
+
+```bash
+python -m pytest
+```
+
+132 个测试:逐条规则、随机对局不变量、向听数、规则型 AI、服务端和 WebSocket 全流程。
+
 ## 目录
 
 ```
 .
-├── chuanma/          规则引擎(阶段 1)
+├── chuanma/          规则引擎
 │   ├── tiles.py        牌的编码与解析
 │   ├── config.py       规则配置
 │   ├── actions.py      动作与 0..114 的固定编号
 │   ├── hand.py         判胡、拆牌、听牌
+│   ├── shanten.py      向听数、有效进张
 │   ├── fan.py          番型与番数
 │   ├── game.py         状态机: 流程、合法动作、计分、各座位视图
 │   ├── record.py       牌谱保存与复盘
 │   ├── agents.py       策略接口 + RandomAgent / SimpleAgent
 │   ├── runner.py       对局与批量统计
 │   └── __main__.py     命令行
-├── tests/            测试(规则逐条验证 + 随机对局不变量)
+├── ai/               引擎之上的策略
+│   ├── rule_agent.py   规则型 AI
+│   └── evaluate.py     同牌对比评估
+├── server/           本地对局服务
+│   ├── match.py        一场牌局: 1 人 + 3 电脑,多局累计
+│   ├── app.py          HTTP 接口和 WebSocket
+│   └── __main__.py     启动入口
+├── frontend/         牌桌界面(React + TypeScript + Vite)
+├── tests/            测试
 ├── docs/             项目文档
-├── frontend/         React + Vite 脚手架,阶段 2 在此基础上做牌桌界面
+├── records/          自动保存的牌谱(不入库)
 └── legacy/           2025 年 5 月的旧版代码,只保留作参考
 ```
 
@@ -87,17 +154,18 @@ print(game.scores, game.wins)
 |---|---|
 | [docs/roadmap.md](docs/roadmap.md) | 分阶段计划、每阶段的交付物和验收标准、当前进度 |
 | [docs/rules.md](docs/rules.md) | 引擎实现的确切规则、番表、配置项、未实现的规则 |
-| [docs/architecture.md](docs/architecture.md) | 整体架构、引擎接口、视图字段、动作编号、事件、牌谱格式 |
-| [docs/ai-training.md](docs/ai-training.md) | AI 训练方案、硬件条件、评估方法 |
+| [docs/architecture.md](docs/architecture.md) | 整体架构、引擎接口、服务端协议、界面结构、牌谱格式 |
+| [docs/ai-training.md](docs/ai-training.md) | AI 训练方案、规则型 AI 的做法与成绩、硬件条件、评估方法 |
 
 ## 环境
 
 | 项 | 要求 |
 |---|---|
 | Python | 3.10 及以上(开发机为 3.11.9) |
-| 引擎依赖 | 无 |
-| 测试 | pytest |
-| 之后的阶段 | 阶段 2 需要 FastAPI、Node.js;阶段 4 需要带 CUDA 的 PyTorch,见 [docs/ai-training.md](docs/ai-training.md) |
+| 引擎、规则型 AI | 无第三方依赖 |
+| 对局软件 | fastapi、uvicorn、wsproto;构建界面需要 Node.js(开发机为 22) |
+| 测试 | pytest、httpx |
+| 之后的神经网络训练 | 带 CUDA 的 PyTorch,见 [docs/ai-training.md](docs/ai-training.md) |
 
 ## 关于 legacy/
 

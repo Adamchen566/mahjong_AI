@@ -695,6 +695,12 @@ class Game:
             ],
             "scores": list(self.scores),
             "pending_discard": pending_discard,
+            # 自己回合: 这张牌是杠后补的;响应弃牌: 这张弃牌是杠后打出的。全桌都看得到
+            "after_gang": (
+                self.after_gang
+                if self.phase == Phase.TURN
+                else self.discard_after_gang if self.phase == Phase.RESPONSE else False
+            ),
             "exchange": {
                 "given": list(self.exchange_out[seat]),
                 "received": list(self.exchange_in[seat]) if self.exchange_done else [],

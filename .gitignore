@@ -15,6 +15,7 @@ score_log.json
 records/
 runs/
 checkpoints/
+data/
 
 # 模型权重(legacy/yolov8n.pt 是历史遗留,保持跟踪)
 *.pt

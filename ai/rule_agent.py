@@ -60,6 +60,11 @@ class RuleAgent:
         full = tiles_to_counts(list(obs["hand"]) + given)  # 还原成选牌之前的手牌
         plan = _exchange_plan(full)
         for t in given:
+            if t not in plan:
+                # 前面选的牌不在自己的方案里(生成训练数据时会故意随机走几步):
+                # 花色已经定了,就在这门里挑剩下最没用的一张
+                counts = tiles_to_counts(obs["hand"])
+                return min(options, key=lambda a: (keep_value(counts, a.tile), a.tile))
             plan.remove(t)
         return Action(ActionType.EXCHANGE, plan[0])
 

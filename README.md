@@ -5,8 +5,8 @@
 | 目标 | 内容 | 状态 |
 |---|---|---|
 | 1. 可使用的麻将软件 | 浏览器里 1 人对 3 个电脑,完整打一局并结算 | **已完成(阶段 2)** |
-| 2. 训练 AI | 规则型 AI 打底,再用自我对弈强化学习 | 规则型 AI 已完成(阶段 4a);神经网络未开始 |
-| 3. AI 加入对局 | 训练出的模型作为不同难度的对手坐进牌局 | 规则型 AI 已经可以选作对手;训练模型未开始 |
+| 2. 训练 AI | 规则型 AI 打底,再用自我对弈强化学习 | 规则型 AI(4a)、训练环境(4b)、模仿学习(4c)已完成:网络已和规则型 AI 打成平手;自我对弈(4d)未开始 |
+| 3. AI 加入对局 | 训练出的模型作为不同难度的对手坐进牌局 | 规则型 AI 已经可以选作对手;训练出的模型能在命令行里对局和评估,还没接进界面 |
 | 地基:规则引擎 | 无界面、可复现的川麻状态机,三个目标共用 | 已完成(阶段 0、1) |
 
 联机对战不在当前范围内。完整计划见 [docs/roadmap.md](docs/roadmap.md)。
@@ -73,6 +73,46 @@ python -m ai.evaluate --candidate rule --baseline simple -n 1000 --workers 12
 
 同一副牌打 4 次,待测策略轮流坐 4 个座位,抵消发牌运气。
 
+## 训练环境
+
+给神经网络训练用的部分(需要 numpy 和带 CUDA 的 PyTorch,安装方法见 `requirements-train.txt`)。逐项任务和进度见 [docs/phase4-tasks.md](docs/phase4-tasks.md)。
+
+| 工具 | 作用 |
+|---|---|
+| `ai/encoding.py` | 把一个座位看到的局面编码成 71 × 27 的数组,外加 115 个动作的合法掩码 |
+| `ai/env.py` | 多进程并行对局:每一步交出一批待决策的局面,收回一批动作 |
+| `python -m ai.generate` | 让规则型 AI 互打,把每个决策点存成模仿学习的数据 |
+| `python -m ai.bench` | 测上面这些的速度 |
+| `python -m ai.train_bc` | 模仿学习:让网络学规则型 AI 的选择 |
+| `ai/net_agent.py` | 把训练出的网络包成可以入座的策略;`ai.evaluate` 的 `--candidate` 可以直接给模型文件 |
+
+生成 1 万局的模仿数据(约 80 秒,37 MB):
+
+```bash
+python -m ai.generate --games 10000 --workers 12 --out data/bc_rule
+```
+
+训练模仿模型(404 万个样本,显卡上约 9 分钟),再和规则型 AI 对比:
+
+```bash
+python -m ai.train_bc --data data/bc_rule/clean data/bc_rule/explore --val data/bc_rule_val --out checkpoints/bc
+```
+
+```bash
+python -m ai.evaluate --candidate checkpoints/bc/best.pt --baseline rule -n 2500 --workers 12
+```
+
+测速:
+
+```bash
+python -m ai.bench --workers 12
+```
+
+| 模仿模型的成绩 | 结果 |
+|---|---|
+| 和规则型 AI 选同一步的比例 | 97.9% |
+| 对 3 个规则型 AI(1 万局) | 平均每局 -0.006 分,95% 置信区间 -0.054 到 +0.042,持平 |
+
 ## 只用引擎
 
 规则引擎 `chuanma` 是纯 Python 标准库,没有第三方依赖。
@@ -116,7 +156,7 @@ print(game.scores, game.wins)
 python -m pytest
 ```
 
-132 个测试:逐条规则、随机对局不变量、向听数、规则型 AI、服务端和 WebSocket 全流程。
+158 个测试:逐条规则、随机对局不变量、向听数、规则型 AI、状态编码、并行对局环境、网络与模仿学习、服务端和 WebSocket 全流程。
 
 ## 目录
 
@@ -136,7 +176,16 @@ python -m pytest
 │   └── __main__.py     命令行
 ├── ai/               引擎之上的策略
 │   ├── rule_agent.py   规则型 AI
-│   └── evaluate.py     同牌对比评估
+│   ├── evaluate.py     同牌对比评估
+│   ├── encoding.py     状态编码、动作掩码
+│   ├── env.py          训练用的并行对局环境
+│   ├── generate.py     生成模仿学习数据
+│   ├── bench.py        训练环境测速
+│   ├── model.py        策略-价值网络
+│   ├── dataset.py      读模仿数据
+│   ├── train_bc.py     模仿学习训练入口
+│   ├── selfplay.py     用网络给一批局面选动作
+│   └── net_agent.py    把网络包成可以入座的策略
 ├── server/           本地对局服务
 │   ├── match.py        一场牌局: 1 人 + 3 电脑,多局累计
 │   ├── app.py          HTTP 接口和 WebSocket
@@ -145,6 +194,8 @@ python -m pytest
 ├── tests/            测试
 ├── docs/             项目文档
 ├── records/          自动保存的牌谱(不入库)
+├── data/             生成的训练数据(不入库)
+├── checkpoints/      训练出的模型(不入库)
 └── legacy/           2025 年 5 月的旧版代码,只保留作参考
 ```
 
@@ -156,6 +207,7 @@ python -m pytest
 | [docs/rules.md](docs/rules.md) | 引擎实现的确切规则、番表、配置项、未实现的规则 |
 | [docs/architecture.md](docs/architecture.md) | 整体架构、引擎接口、服务端协议、界面结构、牌谱格式 |
 | [docs/ai-training.md](docs/ai-training.md) | AI 训练方案、规则型 AI 的做法与成绩、硬件条件、评估方法 |
+| [docs/phase4-tasks.md](docs/phase4-tasks.md) | 阶段 4 的逐项任务、完成标准、实测速度、起步参数 |
 
 ## 环境
 
@@ -163,9 +215,10 @@ python -m pytest
 |---|---|
 | Python | 3.10 及以上(开发机为 3.11.9) |
 | 引擎、规则型 AI | 无第三方依赖 |
+| 训练环境(编码、并行对局、数据生成) | numpy |
 | 对局软件 | fastapi、uvicorn、wsproto;构建界面需要 Node.js(开发机为 22) |
 | 测试 | pytest、httpx |
-| 之后的神经网络训练 | 带 CUDA 的 PyTorch,见 [docs/ai-training.md](docs/ai-training.md) |
+| 神经网络训练 | 带 CUDA 的 PyTorch(开发机为 2.7.0+cu126),见 `requirements-train.txt` |
 
 ## 关于 legacy/
 

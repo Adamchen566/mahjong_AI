@@ -120,6 +120,7 @@ Game(config=None, seed=None, dealer=0, wall=None, exchange_direction=None, recor
 | `won`、`wins` | 谁已胡牌,以及每次胡牌的牌、番型、分数 | — |
 | `scores` | 四家当前得分 | — |
 | `pending_discard` | 正在等待响应的那张牌 `{seat, tile}`;抢杠时多一个 `rob_kong: true` | — |
+| `after_gang` | 自己回合时:这张牌是杠后补的;响应弃牌时:这张弃牌是杠后打出的 | — |
 | `exchange` | `given` 自己换出的牌,`received` 收到的牌,`direction` 方向 | 只有自己的 |
 | `legal_actions` | 自己现在的合法动作编号 | 没轮到时为空 |
 | `hands`、`end_reason` | 四家手牌、结束原因 | 只在牌局结束后出现 |
@@ -214,14 +215,14 @@ class Agent(Protocol):
 | 如果不够快 | 做法 |
 |---|---|
 | 第一步 | 多进程并行(对局之间互不相关) |
-| 第二步 | 训练时不走视图字典,直接从 `Game` 的内部状态编码成张量 |
+| 第二步 | 训练时不走视图字典,直接从 `Game` 的内部状态编码成张量(已做:`ai/encoding.py`,12 进程随机策略实测 12.5 万个决定/秒) |
 | 第三步 | 把判胡和向听数用 Numba 或 Rust 重写 |
 
 ## 9. 引擎之上的三层
 
 | 包 | 内容 | 依赖 |
 |---|---|---|
-| `ai/` | `RuleAgent`(规则型 AI)、`make_agent(name)` 名字到策略的登记表、`evaluate` 同牌对比 | chuanma |
+| `ai/` | `RuleAgent`(规则型 AI)、`make_agent(name)` 名字到策略的登记表、`evaluate` 同牌对比;训练环境 `encoding`(状态编码)、`env`(并行对局)、`generate`(模仿数据) | chuanma;训练环境另需 numpy |
 | `server/` | `Match`(一场牌局)、FastAPI 应用、启动入口 | chuanma, ai |
 | `frontend/` | 浏览器界面 | 只通过网络和 server 通信 |
 
@@ -320,5 +321,6 @@ React 19 + TypeScript + Vite,没有其他运行时依赖。
 
 | 阶段 | 接入点 |
 |---|---|
-| 4b–4d 训练 | 环境包装 `Game`:把内部状态编码成张量,`legal_action_ids()` 生成动作掩码,`scores` 作为回报 |
+| 4b 训练环境 ✅ | `ai/encoding.py` 把 `Game` 的内部状态编码成 71 × 27 的数组,`legal_action_ids()` 生成动作掩码;`ai/env.py` 并行开局,每次决定之间 `scores` 的变化作为回报 |
+| 4c–4d 训练 | 网络接在 `ParallelEnv` 上:收一批局面,回一批动作。任务见 [phase4-tasks.md](phase4-tasks.md) |
 | 5 AI 入座 | 把神经网络包成一个 `Agent`,在 `ai/__init__.py` 的登记表里加一个名字,界面的难度选项就多一档 |

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# 运行时产物(可重新生成)
+oracle_ai_log.txt
+score_log.json
+*.log
+records/
+runs/
+checkpoints/
+
+# 模型权重(legacy/yolov8n.pt 是历史遗留,保持跟踪)
+*.pt
+*.pth
+*.onnx
+!legacy/yolov8n.pt
+
+# 密钥与本地配置
+.env
+.env.*
+
+# 前端
+node_modules/
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

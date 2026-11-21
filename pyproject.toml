@@ -1,0 +1,16 @@
+[project]
+name = "chuanma"
+version = "0.1.0"
+description = "四川麻将(血战到底)规则引擎、对局软件与 AI"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+
+[tool.setuptools]
+packages = ["chuanma"]

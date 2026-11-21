@@ -1,11 +1,17 @@
+import os
 import cv2
 import json
 from inference_sdk import InferenceHTTPClient
 from collections import deque, Counter
 
+# 密钥从环境变量读取,不要写进代码。PowerShell: $env:ROBOFLOW_API_KEY = "..."
+api_key = os.environ.get("ROBOFLOW_API_KEY")
+if not api_key:
+    raise SystemExit("请先设置环境变量 ROBOFLOW_API_KEY")
+
 client = InferenceHTTPClient(
     api_url="https://serverless.roboflow.com",
-    api_key="9U8KIimn1UZTXGWrxXgX"
+    api_key=api_key
 )
 
 N = 5  # 最近5帧

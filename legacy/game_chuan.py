@@ -95,16 +95,6 @@ def main():
                     dihu = True
                     win_records.append({'pos': dihu_pos, 'type': 'ron', 'loser': dealer})
 
-    # 作弊发牌
-    board.hands[WindPosition.EAST] = [
-        Tile(Suit.MANZU, 2), Tile(Suit.MANZU, 2),
-        Tile(Suit.MANZU, 3), Tile(Suit.MANZU, 3),
-        Tile(Suit.MANZU, 4), Tile(Suit.MANZU, 4),
-        Tile(Suit.MANZU, 5), Tile(Suit.MANZU, 5),
-        Tile(Suit.MANZU, 6), Tile(Suit.MANZU, 6),
-        Tile(Suit.MANZU, 7), Tile(Suit.MANZU, 7),
-        Tile(Suit.SOUZU, 2),
-    ]
     # 跳过已胡玩家
     while current_pos in finished_players:
         current_pos = current_pos.next()

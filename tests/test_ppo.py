@@ -98,6 +98,7 @@ def test_train_saves_and_resumes(tmp_path):
         pool_size=2,
         snapshot_every=1,
         eval_every=0,
+        keep_every=2,
         device="cpu",
         log=lambda *_: None,
     )
@@ -105,6 +106,11 @@ def test_train_saves_and_resumes(tmp_path):
     first = load_checkpoint(out / "latest.pt")
     assert first["state"]["iteration"] == 2 and first["state"]["games"] > 0
     assert len(first["pool"]) == 2 and "optimizer" in first
+    # 每两轮留一份里程碑: 只有模型和进度,没有优化器和对手池
+    kept = list((out / "milestones").glob("games-*.pt"))
+    assert len(kept) == 1
+    milestone = load_checkpoint(kept[0])
+    assert milestone["state"]["iteration"] == 2 and "optimizer" not in milestone and "pool" not in milestone
 
     train(str(out), resume=True, iterations=1, **common)
     second = load_checkpoint(out / "latest.pt")

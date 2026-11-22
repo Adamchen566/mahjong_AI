@@ -94,6 +94,7 @@ def train(
     eval_every: int = 20,
     eval_deals: int = 1000,
     eval_workers: int = 12,
+    keep_every: int = 100,
     device: Optional[str] = None,
     log=print,
 ) -> Dict[str, float]:
@@ -200,6 +201,10 @@ def train(
                 state["snapshots"] += 1
 
             save(latest)
+            if keep_every and it % keep_every == 0:
+                # 里程碑: 只存模型本身(几兆),以后可以拿不同阶段的版本出来对打
+                name = f"games-{state['games'] // 10_000:05d}w.pt"
+                save_checkpoint(out / "milestones" / name, learner, stage="ppo", state=dict(state))
             if eval_every and it % eval_every == 0:
                 result = evaluate(str(latest), "rule", eval_deals, seed=EVAL_SEED, workers=eval_workers)
                 lo, hi = result.ci95
@@ -261,6 +266,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--snapshot-every", type=int, default=10)
     parser.add_argument("--eval-every", type=int, default=20)
     parser.add_argument("--eval-deals", type=int, default=1000)
+    parser.add_argument("--keep-every", type=int, default=100, help="每多少轮留一份里程碑模型(0 表示不留)")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
@@ -284,6 +290,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         snapshot_every=args.snapshot_every,
         eval_every=args.eval_every,
         eval_deals=args.eval_deals,
+        keep_every=args.keep_every,
     )
     return 0
 

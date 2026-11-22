@@ -7,12 +7,12 @@
 ```
              ┌─────────────┐   ┌──────────────┐   ┌──────────────┐
              │ 牌桌界面     │   │ 训练环境      │   │ 同牌对比评估  │
-             │ server/前端  │   │ (未开始)      │   │ ai/evaluate  │
+             │ server/前端  │   │ ai/env        │   │ ai/evaluate  │
              └──────┬──────┘   └──────┬───────┘   └──────┬───────┘
                     │                 │                  │
              ┌──────▼─────────────────▼──────────────────▼───────┐
              │ 策略接口  Agent.act(observation, legal) -> Action  │
-             │ 人 / SimpleAgent / RuleAgent / 神经网络(未开始)     │
+             │ 人 / SimpleAgent / RuleAgent / 神经网络             │
              └──────────────────────┬────────────────────────────┘
                                     │
              ┌──────────────────────▼────────────────────────────┐
@@ -273,7 +273,10 @@ class Agent(Protocol):
 | `GET /api/opponents` | 可选的对手类型 |
 | `GET /api/records` | 牌谱列表(新的在前) |
 | `GET /api/records/{name}` | 一份牌谱的每一步(谁做了什么) |
-| `GET /api/records/{name}/view/{step}` | 走到第 step 步之后的局面,四家明牌 |
+| `GET /api/records/{name}/view/{step}?seat=2` | 走到第 step 步之后的局面,四家明牌。`seat` 是坐在下方的那一家,不给就是当时人坐的位置 |
+| `GET /api/records/{name}/analysis` | 模型对每一步的看法,见 9.5 |
+| `POST /api/spectate` | 四个电脑打一局,见 9.6 |
+| `GET /api/ladder` | 段位梯的数据,见 9.6 |
 | `GET /` | 构建好的界面(`frontend/dist`);没构建时显示构建方法 |
 
 ### 9.4 界面
@@ -286,9 +289,13 @@ React 19 + TypeScript + Vite,没有其他运行时依赖。
 | `App.tsx` | 开始页、牌桌 + 侧栏的总布局 |
 | `Table.tsx` | 牌桌:三个对手、弃牌区、中央方位盘、自己的手牌和操作按钮 |
 | `Result.tsx` | 结算单 |
-| `Replay.tsx` | 牌谱列表和回放 |
+| `Replay.tsx` | 牌谱列表;一局的播放器(回放和观战共用):逐步、自动播放、调速、换视角 |
+| `Insight.tsx` | 侧栏里的牌理:向听数、进张、听哪些牌 |
+| `Charts.tsx` | 两张图:回放时的估值曲线、段位梯页的训练曲线。手写 SVG,没有图表库 |
+| `Ladder.tsx` | 段位梯页 |
+| `Toggles.tsx` | 声音、报牌、牌理的开关 |
 | `tiles.ts` | 牌名、图片路径、事件转文字 |
-| `sound.ts` | 音效。全部用 Web Audio 现场合成,不带音频文件;开关存在浏览器的 localStorage 里 |
+| `sound.ts` | 声音。牌碰桌面和提示音用 Web Audio 现场合成;报牌的人声是 `public/voice/` 下的音频文件。开关存在浏览器的 localStorage 里 |
 | `types.ts` | 服务端数据的类型定义 |
 | `styles.css` | 全部样式 |
 
@@ -329,6 +336,28 @@ React 19 + TypeScript + Vite,没有其他运行时依赖。
 | 牌局信息 | `match.hint_available`(有没有模型)、`match.hint_on` |
 | 对手列表 | `GET /api/opponents` 每项带 `available` 和 `reason` |
 | 复盘分析 | `GET /api/records/{name}/analysis`:`steps[i]` 对应牌谱第 i+1 步,有 `seat`、`forced`、`agree`、`best`、`chosen`、`value`;`summary` 是每个座位做了几次选择、几次和模型首选一样。模型看的是当时那个座位的视图,不是摊开的牌 |
+
+### 9.6 演示功能: 牌理、思考可视化、观战、段位梯、报牌
+
+**牌理**(`chuanma/insight.py`):`insight(obs)` 只读一个座位自己的视图,所以可以直接显示给玩家。全是规则计算,不需要模型。打牌阶段、这一家还没胡时,对局的 `view` 里多一个 `insight`:
+
+| 情形 | 字段 |
+|---|---|
+| 13 张(没轮到自己出牌),没听牌 | `shanten`、`useful`(进张:`[{tile, left}]`)、`total`(进张总张数) |
+| 13 张,听牌 | `shanten = 0`、`waits`(`[{tile, left, fan, points, names}]`,番数按点炮胡算)、`total` |
+| 14 张(轮到自己出牌) | `shanten`(打出最好的一张之后)、`discards`:每张能打的牌各一份上面的内容,外加 `best` |
+| 都有 | `void_left`:手里还有几张缺门牌 |
+
+`left` 是这个座位还没见过的张数:4 减去自己手里的、所有副露里的、所有弃牌里的。
+这里的向听数比 `shanten()` 多考虑一件事:缺门牌必须先打完,每打一张要花一巡,所以手里有 v 张缺门牌时至少是 v 向听。规则型 AI 用的仍是原来的 `shanten()`,它的打法没有变。
+
+**思考可视化**:提示里多了 `tiles`(`[[牌, 概率], ...]`,所有能打或能换的牌),界面画成手牌上方的概率条。复盘分析的每一步都有 `value`(模型估计这一家还会得多少分)和 `score`(这一家当时已经得的分),有选择的步骤另有 `top`(前三个动作)和 `tiles`;整份分析多一个 `final`(四家最终得分)。估值曲线画的是 `score + value`。
+
+**观战**:`POST /api/spectate`,请求体 `{"agents": ["net", "rule", "simple", "net"]}`(东南西北各用哪种电脑)。服务端当场把这一局打完(约 0.3 秒),返回 `{name, steps, agents}`。`name` 可以直接用在牌谱的那几个接口上,界面拿它按自己的速度播放,所以暂停、调速、往回看都不需要服务端配合。观战的牌谱只放在内存里(最近 20 局),不写进 `records/`。观战时 `view` 里有 `seat_labels`(四个座位各是哪种电脑);回放和观战的 `view` 都有 `shanten`(四家各自的向听数,各算各的)。牌谱的每一步带 `type`、`tile`、`zimo`,播放时用来出声。
+
+**段位梯**:`python -m ai.ladder` 让各个版本两两同桌对打(同牌对比,种子从 2000 万起,和训练、定期评估都不重叠),结果连同训练日志里的评估曲线写进 `models/ladder.json`;`GET /api/ladder` 原样返回。`matrix[i][j]` 是第 i 个选手和三个第 j 个选手同桌时的平均每局得分、95% 区间、胡牌率、点炮率。
+
+**报牌**:`frontend/public/voice/<音色>/<键>.mp3`,键是 `t0`..`t26`(27 种牌)和 `pong`、`gang`、`hu`、`zimo`;`manifest.json` 列出音色。东南西北四个座位依次用四个音色。音频由 `tools/make_voice.py` 生成,它用的是本机另一个项目部署的 Qwen3-TTS(Apache-2.0)和那边定好的四个音色,不在本项目的依赖里。没有这些文件时界面上的"报牌"开关不出现。
 
 ## 10. 之后的阶段怎么接上来
 

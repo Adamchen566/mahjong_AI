@@ -87,7 +87,9 @@ def test_insight_from_own_view():
 def test_websocket_flow(tmp_path):
     app = create_app(records_dir=tmp_path, dist_dir=tmp_path / "none", bot_delay=0, seed=11, advisor=None)
     client = TestClient(app)
-    assert [o["id"] for o in client.get("/api/riichi/opponents").json()] == ["shanten", "simple"]
+    opponents = {o["id"]: o for o in client.get("/api/riichi/opponents").json()}
+    assert set(opponents) == {"shanten", "simple", "net"} and opponents["shanten"]["available"]
+    assert client.get("/api/riichi/records/nothing.json/analysis").json()["available"] is False  # 测试里不加载模型
     agent = ShantenAgent(1)
     with client.websocket_connect("/ws/riichi") as ws:
         assert ws.receive_json()["match"] is None
@@ -119,3 +121,24 @@ def test_websocket_flow(tmp_path):
         assert ws.receive_json()["match"] is None
     assert list((tmp_path / "riichi").glob("*.json"))
     assert client.get("/api/records").json() == []  # 日麻牌谱不混进川麻的牌谱列表
+
+
+def test_record_endpoints_and_spectate(tmp_path):
+    app = create_app(records_dir=tmp_path, dist_dir=tmp_path / "none", bot_delay=0, seed=12, advisor=None)
+    client = TestClient(app)
+    r = client.post("/api/riichi/spectate", json={"agents": ["shanten", "simple", "shanten", "simple"], "seed": 3})
+    assert r.status_code == 200
+    name = r.json()["name"]
+    detail = client.get(f"/api/riichi/records/{name}").json()
+    steps, hands = detail["steps"], detail["hands"]
+    assert len(steps) == r.json()["steps"] and hands[0]["start"] == 0
+    assert sum(1 for s in steps if "result" in s) == len(hands)  # 每一局结束的那一步带结算
+    view = client.get(f"/api/riichi/records/{name}/view/{len(steps)}?seat=2").json()["view"]
+    assert view["seat"] == 2 and len(view["hands"]) == 4 and view["final"]["ranks"]
+    assert view["seat_labels"] == ["规则型", "简单", "规则型", "简单"]
+    mid = client.get(f"/api/riichi/records/{name}/view/40").json()["view"]
+    assert sum(len(h) for h in mid["hands"]) >= 52
+    assert client.post("/api/riichi/spectate", json={"agents": ["shanten"]}).status_code == 400
+    assert client.post("/api/riichi/spectate", json={"agents": ["net"] * 4}).status_code in (200, 400)
+    assert client.get("/api/riichi/records/missing.json").status_code == 404
+    assert client.get("/api/riichi/records").json() == []

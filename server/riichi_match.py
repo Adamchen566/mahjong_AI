@@ -10,12 +10,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from riichi import Action, ActionType, Game, GameRecord, make_agent
+from riichi import Action, ActionType, Game, GameRecord
+from riichi_ai import make_agent
 from riichi.game import NUM_SEATS
 from riichi.shanten import discard_shanten, shanten, useful_tiles
 from riichi.tiles import FIVE_KINDS, kind_of
 
-OPPONENTS = {"shanten": "规则型", "simple": "简单"}
+from .riichi_records import tile_probs
+
+OPPONENTS = {"shanten": "规则型", "simple": "简单", "net": "神经网络"}
 SEAT_NAMES = ("东", "南", "西", "北")
 
 
@@ -84,6 +87,34 @@ def insight(view: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return {"shanten": best, "discards": options}
 
 
+def load_advisor() -> Optional[Any]:
+    """提示、点炮概率和复盘分析用的日麻模型。没有模型文件或缺依赖时返回 None,软件照常能玩。"""
+    try:
+        from riichi_ai.onnx_agent import OnnxAgent, model_status
+    except ImportError:
+        return None
+    if not model_status()[0]:
+        return None
+    return OnnxAgent()
+
+
+def advise(advisor: Any, game: Game, seat: int, top: int = 3) -> Dict[str, Any]:
+    """模型对这个座位当前局面的看法。只用这个座位自己的 observation()。
+
+    value: 估计这一场还会得多少名次分;choices: 概率最高的几个动作;tiles: 每张能打的牌的概率;
+    danger: 34 种牌各自打出去被荣和的概率(按种类,赤 5 和普通 5 一样)。
+    """
+    legal = game.legal_actions()
+    probs, value, danger = advisor.evaluate(game.observation(seat), legal)
+    ranked = sorted(zip(probs, legal), key=lambda x: -x[0])[:top]
+    return {
+        "value": round(value, 2),
+        "choices": [{**action_json(game, a), "prob": round(p, 4)} for p, a in ranked],
+        "tiles": tile_probs(probs, legal),
+        "danger": [round(d, 4) for d in danger],
+    }
+
+
 class RiichiMatch:
     def __init__(
         self,
@@ -91,9 +122,14 @@ class RiichiMatch:
         seed: Optional[int] = None,
         human_seat: int = 0,
         records_dir: Optional[Path] = None,
+        advisor: Optional[Any] = None,
     ) -> None:
         if opponent not in OPPONENTS:
             raise ValueError(f"未知的对手类型: {opponent}")
+        if opponent == "net" and advisor is None:
+            raise ValueError("神经网络对手现在用不了: 没有模型文件")
+        self.advisor = advisor
+        self.hint_on = False
         self.opponent = opponent
         self.human_seat = human_seat
         self.records_dir = records_dir
@@ -165,6 +201,8 @@ class RiichiMatch:
         g = self.game
         view = g.observation(self.human_seat)
         view["legal"] = [action_json(g, a) for a in g.legal_actions()] if self.waiting_for_human else []
+        if self.hint_on and self.advisor is not None and self.waiting_for_human:
+            view["hint"] = advise(self.advisor, g, self.human_seat)
         if not self.paused and not g.is_over:
             tips = insight(view)
             if tips is not None:
@@ -183,6 +221,8 @@ class RiichiMatch:
                 "human_seat": self.human_seat,
                 "paused": self.paused,
                 "over": g.is_over,
+                "hint_available": self.advisor is not None,
+                "hint_on": self.hint_on and self.advisor is not None,
             },
             "view": view,
             "events": events[self._cursor :],

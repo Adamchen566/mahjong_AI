@@ -88,3 +88,43 @@ def test_generate_and_train_bc_tiny(tmp_path):
     last = train([str(tmp_path / "d")], [str(tmp_path / "v")], str(tmp_path / "ck"), epochs=0.2, batch_size=64,
                  config=TINY, device="cpu", eval_every=5, log=lambda *a: None)
     assert 0 <= last["accuracy"] <= 1 and (tmp_path / "ck" / "best.pt").is_file()
+
+
+def test_export_onnx_agent_hint_and_analysis(tmp_path):
+    """小网络导出成 ONNX: 推理结果和 PyTorch 一致;对局里的提示、观战、复盘分析都能用它。"""
+    pytest.importorskip("onnxruntime")
+    from riichi import Game
+    from riichi_ai.encoding import encode_obs
+    from riichi_ai.export import export_onnx
+    from riichi_ai.model import save_checkpoint
+    from riichi_ai.onnx_agent import OnnxAgent
+    from server.riichi_match import RiichiMatch, advise
+    from server.riichi_records import record_analysis, spectate_record
+
+    torch.manual_seed(0)
+    net = RiichiNet(TINY).eval()
+    ck = tmp_path / "tiny.pt"
+    save_checkpoint(ck, net, stage="test")
+    onnx_path = export_onnx(str(ck), str(tmp_path / "tiny.onnx"))
+    agent = OnnxAgent(onnx_path)
+    game = Game(seed=1)
+    obs = game.observation(0)
+    legal = game.legal_actions()
+    probs, value, danger = agent.evaluate(obs, legal)
+    assert len(probs) == len(legal) and abs(sum(probs) - 1) < 1e-5 and len(danger) == 34
+    with torch.no_grad():
+        out = net(torch.from_numpy(encode_obs(obs)).unsqueeze(0))
+    assert np.allclose(danger, torch.sigmoid(out.danger[0]).numpy(), atol=1e-4)
+
+    match = RiichiMatch(opponent="simple", seed=3, advisor=agent)
+    match.hint_on = True
+    snap = match.snapshot()
+    hint = snap["view"]["hint"]
+    assert snap["match"]["hint_available"] and len(hint["choices"]) == 3 and len(hint["danger"]) == 34
+    assert all(t in [a.arg for a in match.game.legal_actions()] for t, _ in hint["tiles"])
+    assert advise(agent, match.game, 0)["value"] == hint["value"]
+
+    rec = spectate_record(["simple", "simple", "simple", "simple"], seed=4)
+    result = record_analysis(rec, agent)
+    assert len(result["steps"]) == len(rec.actions)
+    assert sum(s["decisions"] for s in result["summary"]) == sum(1 for s in result["steps"] if not s["forced"])

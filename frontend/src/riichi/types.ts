@@ -116,6 +116,28 @@ export interface RView {
   result?: RHandResult | null
   final?: { scores: number[]; ranks: number[]; final_points: number[]; end_reason: string; hands: number }
   record?: string | null
+  /** 回放和观战: 四家的手牌、各自的向听数、座位标签 */
+  hands?: number[][]
+  shanten?: number[]
+  seat_labels?: string[]
+  hint?: RHint
+}
+
+/** 模型的提示: 概率最高的几个动作、局面估值、每种牌打出去被荣和的概率 */
+export interface RHint {
+  value: number
+  choices: { id: number; type: RActionType; tile: number; text: string; prob: number }[]
+  tiles: [number, number][]
+  danger: number[]
+}
+
+export interface RRecordStep {
+  seat: number
+  text: string
+  type: RActionType
+  tile: number
+  hand: number
+  result?: RHandResult
 }
 
 export interface RMatchInfo {
@@ -124,6 +146,8 @@ export interface RMatchInfo {
   human_seat: number
   paused: boolean
   over: boolean
+  hint_available: boolean
+  hint_on: boolean
 }
 
 export interface REvent {

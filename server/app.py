@@ -218,7 +218,7 @@ def create_app(
             return
 
     # 日麻: /ws/riichi 和 /api/riichi/*,和上面的川麻互不影响
-    register_riichi(app, records_dir, bot_delay, seed)
+    register_riichi(app, records_dir, bot_delay, seed, advisor="auto" if advisor is _AUTO else None)
 
     # ------------------------------------------------------------------ 静态页面
 

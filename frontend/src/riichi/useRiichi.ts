@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { playAlert, playEnd, playRiichiEvent } from '../sound'
 import { calloutOf, describeEvent, type RLogLine } from './tiles'
 import type { RMatchInfo, RStateMessage, RView } from './types'
 
@@ -55,15 +56,23 @@ export function useRiichi() {
         const fresh: RLogged[] = []
         const shouts: RCallout[] = []
         let reset = false
+        let soundAt = 0 // 同一条消息里的多个事件依次出声,不叠在一起
         for (const ev of state.events) {
           if (ev.type === 'hand_start') {
             reset = true
             fresh.length = 0
           }
+          soundAt += playRiichiEvent(ev, me, soundAt)
+          if (ev.type === 'game_end' && state.view?.final) playEnd(state.view.final.final_points[me], soundAt + 0.2)
           const line = describeEvent(ev, me)
           if (line) fresh.push({ ...line, id: nextId.current++ })
           const shout = calloutOf(ev)
           if (shout) shouts.push({ ...shout, id: nextId.current++ })
+        }
+        // 别人打出的牌你可以吃碰杠和时提醒一声
+        const v = state.view
+        if (state.events.length && v && v.legal.length && (v.phase === 'RESPONSE' || v.phase === 'ROB_KAN')) {
+          playAlert(soundAt + 0.05)
         }
         if (reset || fresh.length) setLog((old) => (reset ? fresh : [...old, ...fresh]))
         if (shouts.length) {
@@ -94,6 +103,7 @@ export function useRiichi() {
   const act = useCallback((id: number) => send({ type: 'action', id }), [send])
   const resume = useCallback(() => send({ type: 'continue' }), [send])
   const quitMatch = useCallback(() => send({ type: 'quit_match' }), [send])
+  const setHint = useCallback((on: boolean) => send({ type: 'hint', on }), [send])
 
-  return { connected, ready, match, view, log, callouts, error, newMatch, act, resume, quitMatch }
+  return { connected, ready, match, view, log, callouts, error, newMatch, act, resume, quitMatch, setHint }
 }

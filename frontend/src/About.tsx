@@ -52,7 +52,7 @@ export function About({ onClose, onWatch, onLadder }: { onClose: () => void; onW
             <b>它在想什么</b>打开提示,手牌上方的蓝条是模型打每一张牌的把握;回放时有一张图,画出它预计四家各自能得多少分。
           </li>
           <li>
-            <b>牌理</b>现在几向听、进哪些牌、各剩几张;听牌时列出能胡的牌和番数。这部分是规则算的,不靠模型。
+            <b>牌理</b>现在几向听、进哪些牌、各剩几张;听牌时列出能胡的牌和番数;打出每张牌点炮的可能有多大。这部分是规则和统计算的,不靠模型。
           </li>
           <li>
             <b>观战</b>四个座位各放一种电脑,牌全部摊开,自动一局接一局地打,可以暂停、调速、换视角。
@@ -90,7 +90,7 @@ export function About({ onClose, onWatch, onLadder }: { onClose: () => void; onW
         <h2>还做不到的</h2>
         <ul className="about-list">
           <li>
-            <b>不会防守</b>它的分数全靠进攻。别人听牌时它照样打危险牌,点炮率有 50%。
+            <b>防守偏弱</b>和三个规则型程序同桌时,它的点炮率是 50%,那三家是 45%。血战到底一局要胡三家,四家平均本来就在 46% 左右,所以差距不大,但它确实更爱冲。
           </li>
           <li>
             <b>只有一种玩法</b>四川麻将的血战到底。呼叫转移、过手胡这些地方规则没有做。
@@ -101,7 +101,7 @@ export function About({ onClose, onWatch, onLadder }: { onClose: () => void; onW
         </ul>
 
         <p className="chart-note">
-          用到的东西: Python、PyTorch、ONNX Runtime、FastAPI、React 和 TypeScript。189 个自动化测试。代码在{' '}
+          用到的东西: Python、PyTorch、ONNX Runtime、FastAPI、React 和 TypeScript。193 个自动化测试。代码在{' '}
           <a href="https://github.com/Adamchen566/mahjong_AI" target="_blank" rel="noreferrer">
             github.com/Adamchen566/mahjong_AI
           </a>

@@ -4,7 +4,7 @@
 全部是规则计算,不需要模型。
 
     13 张型(没轮到自己出牌)  现在几向听;没听牌时列出进张,听牌时列出能胡的牌和番数
-    14 张型(轮到自己出牌)    每一张能打的牌: 打出去之后几向听、进张或听的牌
+    14 张型(轮到自己出牌)    每一张能打的牌: 打出去之后几向听、进张或听的牌,以及点炮的可能(见 danger.py)
 
 "剩几张"指这个座位还没见过的张数: 4 减去自己手里的、所有副露里的、所有弃牌里的。
 它们可能在牌墙里,也可能在别人手里。
@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from .config import RuleConfig
+from .danger import danger, seen_counts
 from .fan import Meld, MeldType, WinContext, evaluate_fan
 from .hand import winning_tiles
 from .shanten import shanten, useful_tiles
@@ -73,10 +74,15 @@ def insight(obs: Dict[str, Any], config: Optional[RuleConfig] = None) -> Optiona
         if void_left:
             tiles = [t for t in tiles if t // NUM_RANKS == void]  # 缺门没打完时只能打缺门
         options = []
+        seen = seen_counts(obs)
         for t in tiles:
             counts[t] -= 1
-            options.append({"tile": t, **_thirteen(counts, melds, void, left, config)})
+            option = {"tile": t, **_thirteen(counts, melds, void, left, config)}
             counts[t] += 1
+            risk = danger(obs, t, seen)  # 打出这张被别人胡的可能;没有统计表时不给
+            if risk is not None:
+                option["danger"] = risk
+            options.append(option)
         best = min(o["shanten"] for o in options)
         most = max(o["total"] for o in options if o["shanten"] == best)
         for o in options:

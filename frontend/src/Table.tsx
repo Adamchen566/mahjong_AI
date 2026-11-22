@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { relativeOf, SUIT_NAMES, suitOf, tileName, tileSrc, whoIs, WINDS } from './tiles'
-import type { HandInfo, Legal, Meld, TileLeft, TileProb, View } from './types'
+import type { Danger, HandInfo, Legal, Meld, TileLeft, TileProb, View } from './types'
 import type { Callout } from './useGame'
 
 const SHANTEN_TEXT = ['听牌', '一向听', '两向听', '三向听', '四向听', '五向听', '六向听']
@@ -19,6 +19,17 @@ export function TileCounts({ items }: { items: TileLeft[] }) {
       ))}
     </span>
   )
+}
+
+/** 点炮可能到多少算"险",在手牌上标出来 */
+export const RISKY = 0.08
+export const percent = (p: number) => (p < 0.01 ? '不到 1%' : `${Math.round(p * 100)}%`)
+
+/** 一句话说清打出一张牌有多危险,对哪几家 */
+export function dangerText(d: Danger, me: number): string {
+  if (!d.by.length) return '没有人能胡这张'
+  const who = [...d.by].sort((a, b) => b[1] - a[1]).map(([seat, p]) => `${whoIs(seat, me)} ${percent(p)}`)
+  return `点炮可能 ${percent(d.p)}(${who.join('、')})`
 }
 
 /** 一句话说清一手 13 张牌的牌理 */
@@ -311,6 +322,7 @@ function Self({
             onAct={onAct!}
             onActMany={onActMany!}
             rating={selected.length === 1 ? ratingOf.get(tiles[selected[0]]) : undefined}
+            me={me}
           />
         )}
         {!myTurn && view.phase !== 'END' && !view.hands && <p className="hint">{waitingText(view)}</p>}
@@ -358,6 +370,11 @@ function Self({
                     {prob === maxProb && <i>{Math.round(prob * 100)}%</i>}
                   </span>
                 )}
+                {rating?.danger && rating.danger.p >= RISKY && (
+                  <span className="risk" title={dangerText(rating.danger, me)}>
+                    险 {Math.round(rating.danger.p * 100)}%
+                  </span>
+                )}
                 {keeps && (
                   <span
                     className={`tip${rating.best ? ' is-best' : ''}`}
@@ -392,10 +409,11 @@ interface ActionsProps {
   onAct: (id: number) => void
   onActMany: (ids: number[]) => void
   /** 选中的那张牌打出去之后的牌理 */
-  rating?: HandInfo
+  rating?: HandInfo & { danger?: Danger }
+  me?: number
 }
 
-function Actions({ view, legal, tiles, selected, onAct, onActMany, rating }: ActionsProps) {
+function Actions({ view, legal, tiles, selected, onAct, onActMany, rating, me = 0 }: ActionsProps) {
   const find = (type: Legal['type']) => legal.find((a) => a.type === type)
   const all = (type: Legal['type']) => legal.filter((a) => a.type === type)
 
@@ -463,6 +481,9 @@ function Actions({ view, legal, tiles, selected, onAct, onActMany, rating }: Act
                 打出后{handInfoText(rating)}
                 <TileCounts items={rating.waits ?? rating.useful ?? []} />
               </p>
+            )}
+            {rating?.danger && (
+              <p className={`hint${rating.danger.p >= RISKY ? ' is-risky' : ''}`}>{dangerText(rating.danger, me)}</p>
             )}
           </>
         ) : (

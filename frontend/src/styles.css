@@ -1299,6 +1299,27 @@ tr.is-me {
   color: var(--text-primary);
 }
 
+/* 点炮的可能偏高的牌: 橙色加"险"字,不只靠颜色 */
+.hand-tile .risk {
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  translate: -50% 0;
+  padding: 1px 4px;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-pill);
+  background: var(--bg-base);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--warning);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hint.is-risky,
+.tips p.is-risky {
+  color: var(--warning);
+}
+
 /* 名牌上的向听数(回放和观战时四家都有) */
 .plate-shanten {
   font-size: 12px;

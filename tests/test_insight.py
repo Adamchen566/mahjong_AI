@@ -177,3 +177,59 @@ def test_insight_agrees_with_the_engine_in_real_games():
                     assert not waits
             game.step(agents[seat].act(obs, game.legal_actions()))
     assert seen_ready > 0
+
+
+# ---------------------------------------------------------------- 危险度
+
+
+def danger_obs(tile_text="5p", **changes):
+    """对家打了 12 张牌、碰了两组,另外两家刚开局。自己手里有一张 tile_text。"""
+    obs = obs_of("123m456m789m13p99p" + tile_text, phase="TURN")
+    obs["void"] = [SOU, MAN, SOU, SOU]
+    obs["discards"] = [[], [], parse_tiles("1s2s3s4s6s7s8s9s1s2s3s4s"), []]
+    obs["melds"][2] = [{"type": "PONG", "tile": 0, "from_seat": 0}, {"type": "PONG", "tile": 8, "from_seat": 1}]
+    obs.update(changes)
+    return obs
+
+
+def test_danger_is_zero_against_a_void_suit_or_a_finished_player():
+    from chuanma.danger import danger
+
+    tile = parse_tiles("5m")[0]
+    obs = danger_obs("5m")
+    seats = [seat for seat, _ in danger(obs, tile)["by"]]
+    assert 1 not in seats and set(seats) == {2, 3}  # 下家缺万,不可能胡万子
+    obs["won"] = [False, False, True, False]
+    assert [seat for seat, _ in danger(obs, tile)["by"]] == [3]
+    obs["won"] = [False, True, True, True]
+    assert danger(obs, tile) == {"p": 0.0, "by": []}
+
+
+def test_danger_grows_with_turns_and_melds_and_drops_for_tiles_they_threw():
+    from chuanma.danger import danger
+
+    tile = parse_tiles("5p")[0]
+    late = dict(danger(danger_obs(), tile)["by"])
+    assert late[2] > 4 * late[3]  # 打了 12 张、碰了两组的对家,比刚开局的上家危险得多
+    thrown = danger_obs()
+    thrown["discards"][2] = thrown["discards"][2][:-1] + [tile]
+    assert dict(danger(thrown, tile)["by"])[2] < late[2] / 2  # 对家自己打过这张
+    total = danger(danger_obs(), tile)["p"]
+    assert max(late.values()) <= total <= sum(late.values())
+
+
+def test_every_discard_option_carries_its_danger():
+    info = insight(danger_obs())
+    assert all(0 <= o["danger"]["p"] <= 1 for o in info["discards"])
+    by_tile = {o["tile"]: o["danger"]["p"] for o in info["discards"]}
+    # 同样的对手、同样没见过: 中张比幺九更容易点炮
+    assert by_tile[parse_tiles("5p")[0]] > by_tile[parse_tiles("9p")[0]]
+
+
+def test_danger_table_was_checked_against_held_out_games():
+    from chuanma.danger import load_table
+
+    table = load_table()
+    assert table["games"] >= 10000
+    for row in table["holdout"]:
+        assert abs(row["predicted"] - row["actual"]) < 0.25 * row["actual"] + 0.002

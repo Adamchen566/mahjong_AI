@@ -47,6 +47,12 @@ export interface Wait extends TileLeft {
   names: string[]
 }
 
+/** 打出一张牌点炮的可能: p 是至少被一家胡的概率,by 是 [座位, 概率],只列可能胡它的那几家 */
+export interface Danger {
+  p: number
+  by: [number, number][]
+}
+
 /** 13 张时的牌理: 几向听;没听牌时有进张(useful),听牌时有能胡的牌(waits) */
 export interface HandInfo {
   shanten: number
@@ -59,7 +65,7 @@ export interface HandInfo {
 export interface Insight extends Partial<HandInfo> {
   shanten: number
   void_left: number
-  discards?: (HandInfo & { tile: number; best: boolean })[]
+  discards?: (HandInfo & { tile: number; best: boolean; danger?: Danger })[]
 }
 
 export interface Transfer {

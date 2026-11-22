@@ -1,4 +1,4 @@
-import { handInfoText, shantenText, Tile, TileCounts } from './Table'
+import { handInfoText, percent, RISKY, shantenText, Tile, TileCounts } from './Table'
 import { tileName } from './tiles'
 import type { Insight } from './types'
 
@@ -28,8 +28,24 @@ function Choices({ info }: { info: Insight }) {
         </div>
       ))}
       {best.length > 2 && <p>还有 {best.length - 2} 种打法一样好。</p>}
+      <Risk info={info} />
       <p className="tips-note">手牌上的数字是打出那张之后的进张数,选中一张能看到细节。</p>
     </>
+  )
+}
+
+/** 哪张最危险、哪张最稳。按和电脑打出来的牌局统计,不是对别人手牌的精确推断 */
+function Risk({ info }: { info: Insight }) {
+  const rated = (info.discards ?? []).filter((o) => o.danger)
+  if (rated.length < 2) return null
+  const sorted = [...rated].sort((a, b) => a.danger!.p - b.danger!.p)
+  const safest = sorted[0]
+  const worst = sorted[sorted.length - 1]
+  return (
+    <p className={worst.danger!.p >= RISKY ? 'is-risky' : ''}>
+      点炮的可能: 最高是 {tileName(worst.tile)}({percent(worst.danger!.p)}),最低是 {tileName(safest.tile)}(
+      {percent(safest.danger!.p)})
+    </p>
   )
 }
 

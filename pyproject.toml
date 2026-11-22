@@ -1,7 +1,7 @@
 [project]
 name = "chuanma"
 version = "0.2.0"
-description = "四川麻将(血战到底)规则引擎、对局软件与 AI"
+description = "四川麻将(血战到底)和日本麻将(立直麻将)规则引擎、对局软件与 AI"
 requires-python = ">=3.10"
 dependencies = []
 
@@ -15,4 +15,4 @@ testpaths = ["tests"]
 pythonpath = [".", "tests"]
 
 [tool.setuptools]
-packages = ["chuanma", "ai", "server"]
+packages = ["chuanma", "riichi", "ai", "server"]

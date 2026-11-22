@@ -40,3 +40,6 @@ Thumbs.db
 
 # 本地工具配置
 .claude/
+
+# 日麻算分对照用的虚拟环境
+.venv-riichi/

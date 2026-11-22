@@ -1,8 +1,8 @@
 {
-  "source": "checkpoints/bc/best.pt",
-  "stage": "bc",
-  "exported_at": "2026-11-22T02:52:33",
+  "source": "checkpoints/ppo/best.pt",
+  "stage": "ppo",
+  "exported_at": "2026-11-22T15:20:13",
   "obs_channels": 71,
   "parameters": 1777365,
-  "note": "模仿模型: 对 3 个规则型 AI 1 万局 -0.006 [-0.054, +0.042]"
+  "note": "自我对弈 887 万局: 对 3 个规则型 AI 1 万局(没用过的牌) +1.378 [+1.230, +1.526]"
 }

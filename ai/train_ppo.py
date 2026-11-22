@@ -160,10 +160,19 @@ def train(
             data = build_rollout(episodes, dev, lam)
             metrics = ppo_update(learner, opt, scaler, data, epochs, batch_size, clip, vf_coef, ent_coef)
             t2 = time.perf_counter()
+            num_decisions = len(data)
+            # 每轮的数据量都不一样,用完就把显存还回去,不让缓存越攒越多。
+            # 显存一旦占满,驱动会改用内存顶替,速度掉到几分之一
+            del data
+            gpu_gb = 0.0
+            if dev.type == "cuda":
+                gpu_gb = torch.cuda.max_memory_reserved() / 1e9
+                torch.cuda.empty_cache()
+                torch.cuda.reset_peak_memory_stats()
 
             state["iteration"] += 1
             state["games"] += env.stats.games - games_before
-            state["decisions"] += len(data)
+            state["decisions"] += num_decisions
             state["seconds"] += t2 - t0
             it = state["iteration"]
 
@@ -176,7 +185,7 @@ def train(
                 "sample_seconds": round(t1 - t0, 1),
                 "update_seconds": round(t2 - t1, 1),
                 "vs_pool_score": round(float(np.mean(mixed)), 4) if mixed else 0.0,
-                "episode_length": round(len(data) / len(episodes), 2),
+                "episode_length": round(num_decisions / len(episodes), 2),
                 **{k: round(v, 5) for k, v in metrics.items()},
                 "eval_score": "",
                 "eval_lo": "",
@@ -221,7 +230,7 @@ def train(
                 f"第 {it} 轮: 累计 {state['games']:,} 局 / {state['seconds'] / 3600:.2f} 小时,"
                 f"采样 {t1 - t0:.0f} 秒 + 更新 {t2 - t1:.0f} 秒,对池得分 {row['vs_pool_score']:+.3f},"
                 f"熵 {metrics['entropy']:.3f},KL {metrics['kl']:.4f},"
-                f"价值解释度 {metrics['ev_value']:.2f} / 看全场 {metrics['ev_oracle']:.2f}"
+                f"价值解释度 {metrics['ev_value']:.2f} / 看全场 {metrics['ev_oracle']:.2f},显存峰值 {gpu_gb:.1f} GB"
             )
     except KeyboardInterrupt:
         log("收到中断,已保存的 latest.pt 可以用 --resume 接着训")

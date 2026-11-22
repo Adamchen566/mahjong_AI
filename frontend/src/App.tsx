@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { About } from './About'
 import { InsightPanel } from './Insight'
 import { Ladder } from './Ladder'
 import { Replay, Viewer } from './Replay'
@@ -22,6 +23,7 @@ export default function App() {
   const [watch, setWatch] = useState<{ agents: string[]; name: string } | null>(null) // 正在看的电脑对局
   const [watchError, setWatchError] = useState<string | null>(null)
   const [ladder, setLadder] = useState(false)
+  const [about, setAbout] = useState(false)
   const [insightOn, setInsightOn] = useInsightPreference()
 
   // 让服务端把四个电脑的一局打完,拿到牌谱名之后在这边按自己的速度放
@@ -42,6 +44,16 @@ export default function App() {
     }
   }
 
+  // 直达链接: 地址后面加 #about、#ladder、#watch,打开页面就直接到那一页
+  useEffect(() => {
+    const page = location.hash.slice(1)
+    if (page === 'about') setAbout(true)
+    if (page === 'ladder') setLadder(true)
+    if (page === 'watch') void startWatch(DEFAULT_LINEUP)
+    // 只在打开页面时看一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (watch) {
     return (
       <Viewer
@@ -53,6 +65,21 @@ export default function App() {
     )
   }
   if (ladder) return <Ladder onClose={() => setLadder(false)} />
+  if (about) {
+    return (
+      <About
+        onClose={() => setAbout(false)}
+        onWatch={() => {
+          setAbout(false)
+          void startWatch(DEFAULT_LINEUP)
+        }}
+        onLadder={() => {
+          setAbout(false)
+          setLadder(true)
+        }}
+      />
+    )
+  }
   if (replay) {
     return <Replay initial={replay === 'list' ? null : replay} onClose={() => setReplay(null)} />
   }
@@ -70,6 +97,7 @@ export default function App() {
         onRecords={() => setReplay('list')}
         onWatch={startWatch}
         onLadder={() => setLadder(true)}
+        onAbout={() => setAbout(true)}
         watchError={watchError}
         connected={game.connected}
       />
@@ -108,6 +136,9 @@ export default function App() {
 
 // ---------------------------------------------------------------- 开始页
 
+/** 观战默认的四个座位 */
+const DEFAULT_LINEUP = ['net', 'rule', 'simple', 'net']
+
 const NOTES: Record<string, string> = {
   simple: '能碰就碰、能杠就杠,丢最孤立的牌',
   rule: '会算向听和进张,只在有用的时候碰牌',
@@ -126,11 +157,12 @@ interface LobbyProps {
   onRecords: () => void
   onWatch: (agents: string[]) => void
   onLadder: () => void
+  onAbout: () => void
   watchError: string | null
   connected: boolean
 }
 
-function Lobby({ onStart, onRecords, onWatch, onLadder, watchError, connected }: LobbyProps) {
+function Lobby({ onStart, onRecords, onWatch, onLadder, onAbout, watchError, connected }: LobbyProps) {
   const [opponent, setOpponent] = useState('rule')
   // 神经网络对手要有模型文件才能选;问一下服务端
   const [list, setList] = useState<Opponent[]>(FALLBACK)
@@ -143,7 +175,7 @@ function Lobby({ onStart, onRecords, onWatch, onLadder, watchError, connected }:
   const netOk = !!list.find((o) => o.id === 'net')?.available
   // 观战的四个座位: 有模型时默认两个神经网络对两个别的
   const [seats, setSeats] = useState<string[] | null>(null)
-  const lineup = seats ?? (netOk ? ['net', 'rule', 'simple', 'net'] : ['rule', 'simple', 'rule', 'simple'])
+  const lineup = seats ?? (netOk ? DEFAULT_LINEUP : ['rule', 'simple', 'rule', 'simple'])
 
   return (
     <main className="lobby">
@@ -203,6 +235,9 @@ function Lobby({ onStart, onRecords, onWatch, onLadder, watchError, connected }:
             </button>
             <button className="btn btn-ghost" onClick={onLadder}>
               AI 段位梯
+            </button>
+            <button className="btn btn-ghost" onClick={onAbout}>
+              关于这个项目
             </button>
           </div>
           {watchError && <p className="lobby-status">观战开不了: {watchError}</p>}

@@ -1560,6 +1560,62 @@ tr.is-me {
   font-size: 12px;
 }
 
+/* ---------------------------------------------------------------- 关于这个项目 */
+
+.lobby-card.about {
+  width: min(760px, 100%);
+  align-self: start;
+}
+.about h1 {
+  font-size: 34px;
+}
+.about h2 {
+  margin: 40px 0 12px;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+}
+.about .lobby-sub {
+  max-width: 38em;
+  line-height: 1.8;
+}
+.about-facts th {
+  width: 7em;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.about-facts td {
+  text-align: left;
+  color: var(--text-secondary);
+}
+.about-list,
+.about-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 0 1.4em;
+  max-width: 40em;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.about-list {
+  list-style: none;
+  padding-left: 0;
+}
+.about-list b,
+.about-steps b {
+  margin-right: 0.8em;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.about a {
+  color: var(--secondary);
+}
+.about .chart-note {
+  margin-top: 40px;
+}
+
 /* ---------------------------------------------------------------- 窄屏 / 减少动效 */
 
 @media (max-width: 900px) {

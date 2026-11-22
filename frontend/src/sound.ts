@@ -1,4 +1,4 @@
-// 声音全部用 Web Audio 现场合成,不带任何音频文件。
+// 牌碰桌面、提示音这些用 Web Audio 现场合成;报牌的人声是录好的音频文件(见文件末尾)。
 // 浏览器规定必须先有一次点击或按键才能出声,所以第一次操作之前是静音的。
 
 import type { GameEvent } from './types'
@@ -52,6 +52,7 @@ function unlock(): void {
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
   }
   if (ctx.state === 'suspended') void ctx.resume()
+  if (voiceOn) void loadVoices()
 }
 
 if (typeof window !== 'undefined') {
@@ -135,17 +136,18 @@ export function playEvent(ev: GameEvent, me: number, at = 0): number {
       return 0.06
     case 'discard':
       clack(at, mine ? 1 : 0.86, mine ? 0.55 : 0.4)
-      return 0.12
+      return 0.12 + speak(ev.seat, `t${ev.tile}`, at + 0.05)
     case 'pong':
       clack(at, 0.95)
       clack(at + 0.11, 0.9)
-      return 0.28
+      return 0.28 + speak(ev.seat, 'pong', at + 0.05)
     case 'gang':
       clack(at, 0.9)
       clack(at + 0.1, 0.85)
       clack(at + 0.2, 0.75, 0.6)
-      return 0.38
+      return 0.38 + speak(ev.seat, 'gang', at + 0.05)
     case 'hu':
+      speak(ev.seat, ev.zimo ? 'zimo' : 'hu', at)
       if (mine) {
         ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(at + i * 0.09, f, 0.2, 0.8))
         return 0.7
@@ -169,4 +171,104 @@ export function playEnd(score: number, at = 0): void {
 export function playAlert(at = 0): void {
   note(at, 880, 0.12, 0.16, 'sine')
   note(at + 0.09, 1174.66, 0.12, 0.22, 'sine')
+}
+
+// ---------------------------------------------------------------- 报牌的人声
+
+// 四个座位各用一个音色,打出什么牌就报什么,碰、杠、胡、自摸也喊出来。
+// 音频在 /voice/<音色>/<键>.mp3,键是 t0..t26(27 种牌)和 pong、gang、hu、zimo;
+// /voice/manifest.json 列出有哪些音色。文件由 tools/make_voice.py 生成,没有这些文件时这个功能自动隐藏。
+
+const VOICE_KEY = 'mahjong.voice'
+
+interface VoiceManifest {
+  voices: { id: string; name: string }[]
+  keys: string[]
+}
+
+let voiceOn = readVoicePreference()
+let manifest: Promise<VoiceManifest | null> | null = null
+let voices: VoiceManifest | null = null
+let loading = false
+const clips = new Map<string, AudioBuffer>()
+
+function readVoicePreference(): boolean {
+  try {
+    return localStorage.getItem(VOICE_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function fetchManifest(): Promise<VoiceManifest | null> {
+  manifest ??= fetch('/voice/manifest.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((m: VoiceManifest | null) => (m && m.voices?.length && m.keys?.length ? m : null))
+    .catch(() => null)
+  return manifest
+}
+
+/** 这个版本带不带报牌的音频。 */
+export function voiceAvailable(): Promise<boolean> {
+  return fetchManifest().then((m) => m !== null)
+}
+
+export function voiceEnabled(): boolean {
+  return voiceOn
+}
+
+/** 四个座位各是谁的声音(没有音频时是空的)。 */
+export function voiceNames(): Promise<string[]> {
+  return fetchManifest().then((m) => (m ? [0, 1, 2, 3].map((s) => m.voices[s % m.voices.length].name) : []))
+}
+
+export function setVoiceEnabled(on: boolean): void {
+  voiceOn = on
+  try {
+    localStorage.setItem(VOICE_KEY, on ? 'on' : 'off')
+  } catch {
+    // 存不了就只在这次打开期间生效
+  }
+  if (on) {
+    unlock()
+    void loadVoices()
+  }
+}
+
+/** 把全部音频取回来解码好(一共一两兆)。解码要用到音频输出,所以在第一次点击之后才做。 */
+async function loadVoices(): Promise<void> {
+  if (loading || !ctx) return
+  loading = true
+  const m = await fetchManifest()
+  if (!m || !ctx) return
+  voices = m
+  const audio = ctx
+  await Promise.all(
+    m.voices.flatMap((v) =>
+      m.keys.map(async (key) => {
+        try {
+          const data = await (await fetch(`/voice/${v.id}/${key}.mp3`)).arrayBuffer()
+          clips.set(`${v.id}/${key}`, await audio.decodeAudioData(data))
+        } catch {
+          // 缺一个文件就少报一种牌,不影响别的
+        }
+      }),
+    ),
+  )
+}
+
+/** 让某个座位的声音说一句。返回这句话要给后面的声音让出多久(秒);没出声时是 0。 */
+function speak(seat: number, key: string, at = 0): number {
+  const a = ready()
+  if (!a || !voiceOn || !voices || typeof seat !== 'number') return 0
+  const voice = voices.voices[seat % voices.voices.length]
+  const clip = clips.get(`${voice.id}/${key}`)
+  if (!clip) return 0
+  const src = a.ctx.createBufferSource()
+  src.buffer = clip
+  const gain = a.ctx.createGain()
+  gain.gain.value = 1.25
+  src.connect(gain).connect(a.out)
+  src.start(a.ctx.currentTime + at)
+  return Math.min(clip.duration, 0.45) // 人声可以叠一点,不用等它说完
 }

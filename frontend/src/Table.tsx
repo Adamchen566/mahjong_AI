@@ -1,7 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { relativeOf, SUIT_NAMES, suitOf, tileName, tileSrc, whoIs, WINDS } from './tiles'
-import type { Legal, Meld, View } from './types'
+import type { HandInfo, Legal, Meld, TileLeft, TileProb, View } from './types'
 import type { Callout } from './useGame'
+
+const SHANTEN_TEXT = ['听牌', '一向听', '两向听', '三向听', '四向听', '五向听', '六向听']
+/** 向听数的叫法: 0 是听牌,1 是一向听(再进一张有用的牌就听) */
+export const shantenText = (n: number) => SHANTEN_TEXT[n] ?? `${n} 向听`
+
+/** 一排小牌,每张下面写着还剩几张 */
+export function TileCounts({ items }: { items: TileLeft[] }) {
+  return (
+    <span className="tile-counts">
+      {items.map((u) => (
+        <span key={u.tile} className={u.left === 0 ? 'is-gone' : ''} title={`${tileName(u.tile)} 还剩 ${u.left} 张`}>
+          <Tile tile={u.tile} size="xs" />
+          <i>{u.left}</i>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** 一句话说清一手 13 张牌的牌理 */
+export function handInfoText(info: HandInfo): string {
+  if (info.shanten === 0) return info.waits?.length ? `听牌,还剩 ${info.total} 张` : '听牌,但要的牌已经没有了'
+  return `${shantenText(info.shanten)},进张 ${info.useful?.length ?? 0} 种 ${info.total} 张`
+}
 
 // ---------------------------------------------------------------- 牌
 
@@ -33,9 +57,13 @@ interface TableProps {
   /** 不传就是只读(回放) */
   onAct?: (id: number) => void
   onActMany?: (ids: number[]) => void
+  /** 模型对下方这一家"打哪张"的看法,画成手牌上方的概率条。不传时用对局提示里的 */
+  tileProbs?: TileProb[]
+  /** 在手牌上标出每张牌打出去之后的进张数 */
+  showInsight?: boolean
 }
 
-export function Table({ view, callouts = [], onAct, onActMany }: TableProps) {
+export function Table({ view, callouts = [], onAct, onActMany, tileProbs, showInsight = true }: TableProps) {
   const me = view.seat
   const seats = [0, 1, 2, 3].map((rel) => (me + rel) % 4) // 下、右、上、左
   const lastDiscard = view.pending_discard && !view.pending_discard.rob_kong ? view.pending_discard : null
@@ -66,7 +94,14 @@ export function Table({ view, callouts = [], onAct, onActMany }: TableProps) {
         <Well view={view} />
       </div>
 
-      <Self view={view} callouts={callouts} onAct={onAct} onActMany={onActMany} />
+      <Self
+        view={view}
+        callouts={callouts}
+        onAct={onAct}
+        onActMany={onActMany}
+        tileProbs={tileProbs ?? view.hint?.tiles}
+        showInsight={showInsight}
+      />
     </div>
   )
 }
@@ -138,11 +173,15 @@ function Plate({ view, seat }: { view: View; seat: number }) {
   const me = view.seat
   const win = view.wins.find((w) => w.seat === seat)
   const score = view.scores[seat]
+  const shanten = view.shanten?.[seat]
   return (
     <div className={`plate${view.current === seat ? ' plate-active' : ''}`}>
-      <span className="plate-name">{whoIs(seat, me)}</span>
+      <span className="plate-name">{view.seat_labels?.[seat] ?? whoIs(seat, me)}</span>
       <span className="plate-wind">{WINDS[seat]}</span>
       {win && <span className="plate-won">已胡{win.tile != null && <Tile tile={win.tile} size="xs" />}</span>}
+      {!win && shanten != null && (
+        <span className={`plate-shanten${shanten === 0 ? ' is-ready' : ''}`}>{shantenText(shanten)}</span>
+      )}
       <span className={`plate-score${score > 0 ? ' up' : score < 0 ? ' down' : ''}`}>{score > 0 ? `+${score}` : score}</span>
     </div>
   )
@@ -186,7 +225,14 @@ function Opponent({ view, seat, callouts }: { view: View; seat: number; callouts
 
 // ---------------------------------------------------------------- 自己
 
-function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'> & { callouts: Callout[] }) {
+function Self({
+  view,
+  callouts,
+  onAct,
+  onActMany,
+  tileProbs,
+  showInsight,
+}: Omit<TableProps, 'callouts'> & { callouts: Callout[] }) {
   const me = view.seat
   const legal = view.legal
   const myTurn = legal.length > 0 && !!onAct
@@ -242,6 +288,15 @@ function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'>
   const top = view.hint?.choices[0]
   const hintIndex = top && (top.type === 'DISCARD' || top.type === 'EXCHANGE') ? tiles.indexOf(top.tile) : -1
 
+  // 概率条: 同一种牌有好几张时只画在第一张上(概率是对"这种牌"说的)
+  const probOf = new Map(tileProbs ?? [])
+  const maxProb = Math.max(0, ...probOf.values())
+  const firstAt = (i: number) => tiles.indexOf(tiles[i]) === i
+  // 牌理: 轮到自己出牌时,每张牌打出去之后的向听数和进张
+  const rated = showInsight && view.phase === 'TURN' ? view.insight?.discards : undefined
+  const ratingOf = new Map((rated ?? []).map((o) => [o.tile, o]))
+  const bestShanten = view.insight?.shanten
+
   return (
     <div className="self">
       <div className="self-bar">
@@ -255,6 +310,7 @@ function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'>
             selected={selected}
             onAct={onAct!}
             onActMany={onActMany!}
+            rating={selected.length === 1 ? ratingOf.get(tiles[selected[0]]) : undefined}
           />
         )}
         {!myTurn && view.phase !== 'END' && !view.hands && <p className="hint">{waitingText(view)}</p>}
@@ -268,9 +324,12 @@ function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'>
             ))}
           </div>
         )}
-        <div className="hand" role="group" aria-label="你的手牌">
+        <div className={`hand${probOf.size ? ' has-probs' : ''}`} role="group" aria-label="手牌">
           {tiles.map((t, i) => {
             const pickable = canPick(i)
+            const prob = firstAt(i) ? probOf.get(t) : undefined
+            const rating = firstAt(i) ? ratingOf.get(t) : undefined
+            const keeps = rating && rating.shanten === bestShanten
             const cls = [
               'hand-tile',
               selected.includes(i) ? 'is-selected' : '',
@@ -290,6 +349,23 @@ function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'>
                 aria-pressed={selected.includes(i)}
               >
                 <Tile tile={t} size="lg" />
+                {prob != null && (
+                  <span
+                    className={`prob${prob === maxProb ? ' is-top' : ''}`}
+                    style={{ height: `${Math.max(2, Math.round(prob * 26))}px` }}
+                    title={`模型打出这张的概率 ${Math.round(prob * 100)}%`}
+                  >
+                    {prob === maxProb && <i>{Math.round(prob * 100)}%</i>}
+                  </span>
+                )}
+                {keeps && (
+                  <span
+                    className={`tip${rating.best ? ' is-best' : ''}`}
+                    title={`打出后${handInfoText(rating)}`}
+                  >
+                    {rating.shanten === 0 ? `听${rating.total}` : rating.total}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -315,9 +391,11 @@ interface ActionsProps {
   selected: number[]
   onAct: (id: number) => void
   onActMany: (ids: number[]) => void
+  /** 选中的那张牌打出去之后的牌理 */
+  rating?: HandInfo
 }
 
-function Actions({ view, legal, tiles, selected, onAct, onActMany }: ActionsProps) {
+function Actions({ view, legal, tiles, selected, onAct, onActMany, rating }: ActionsProps) {
   const find = (type: Legal['type']) => legal.find((a) => a.type === type)
   const all = (type: Legal['type']) => legal.filter((a) => a.type === type)
 
@@ -376,9 +454,17 @@ function Actions({ view, legal, tiles, selected, onAct, onActMany }: ActionsProp
           </button>
         ))}
         {chosen != null ? (
-          <button className={hu ? 'btn' : 'btn btn-primary'} onClick={() => onAct(chosen)}>
-            打出 {tileName(chosen)}
-          </button>
+          <>
+            <button className={hu ? 'btn' : 'btn btn-primary'} onClick={() => onAct(chosen)}>
+              打出 {tileName(chosen)}
+            </button>
+            {rating && (
+              <p className="hint">
+                打出后{handInfoText(rating)}
+                <TileCounts items={rating.waits ?? rating.useful ?? []} />
+              </p>
+            )}
+          </>
         ) : (
           <p className="hint">{mustVoid(view) ? '先把缺门的牌打完。' : ''}点一张牌选中,再点一次打出</p>
         )}

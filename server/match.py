@@ -9,11 +9,12 @@ import random
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ai import AGENT_LABELS, make_agent
-from chuanma import Action, Game, GameRecord, RuleConfig, replay
+from chuanma import Action, ActionType, Game, GameRecord, RuleConfig, play_game, replay
 from chuanma.game import NUM_SEATS, Phase
+from chuanma.insight import insight
 from chuanma.tiles import counts_to_tiles
 
 SEAT_NAMES = ("东", "南", "西", "北")
@@ -48,7 +49,17 @@ def advise(advisor: Any, obs: Dict[str, Any], legal: List[Action], top: int = 3)
     return {
         "value": round(value, 2),
         "choices": [{**_action_json(a), "prob": round(p, 4), "text": str(a)} for p, a in ranked],
+        "tiles": _tile_probs(probs, legal),
     }
+
+
+def _tile_probs(probs: Sequence[float], legal: List[Action]) -> List[List[float]]:
+    """模型对"打出哪张"(换三张时是"换出哪张")的全部看法: [[牌, 概率], ...]。界面用它在手牌上画概率条。"""
+    return [
+        [a.tile, round(p, 4)]
+        for p, a in zip(probs, legal)
+        if a.type in (ActionType.DISCARD, ActionType.EXCHANGE)
+    ]
 
 
 class Match:
@@ -164,6 +175,9 @@ class Match:
         )
         if self.hint_on and self.advisor is not None and self.waiting_for_human:
             view["hint"] = advise(self.advisor, g.observation(self.human_seat), g.legal_actions())
+        tips = insight(view, self.config)  # 向听数、进张、听哪些牌: 只用这个座位看得到的东西算
+        if tips is not None:
+            view["insight"] = tips
         if g.is_over:
             view["transfers"] = [_transfer_json(t) for t in g.transfers]
             view["record"] = self.last_record
@@ -227,17 +241,33 @@ def record_steps(record: GameRecord) -> List[Dict[str, Any]]:
     for action_id in record.actions:
         seat = game.current
         action = Action.from_id(action_id)
-        steps.append({"seat": seat, "text": f"{SEAT_NAMES[seat]} {action}"})
+        steps.append(
+            {
+                "seat": seat,
+                "text": f"{SEAT_NAMES[seat]} {action}",
+                "type": action.type.name,
+                "tile": action.tile,
+                "zimo": action.type == ActionType.HU and game.phase == Phase.TURN,
+            }
+        )
         game.step(action)
     return steps
 
 
-def record_view(record: GameRecord, step: int) -> Dict[str, Any]:
-    """牌谱走到第 step 步之后的局面,四家的牌全部公开。"""
+def record_view(record: GameRecord, step: int, seat: Optional[int] = None) -> Dict[str, Any]:
+    """牌谱走到第 step 步之后的局面,四家的牌全部公开。seat 是坐在下方的那一家,默认是当时人坐的位置。"""
     step = max(0, min(step, len(record.actions)))
     game = replay(record, upto=step, record_events=False)
-    seat = record.meta.get("human_seat", 0)
+    if seat is None or not 0 <= seat < NUM_SEATS:
+        seat = record.meta.get("human_seat", 0)
     view = game.observation(seat)
+    # 每一家各自的牌理(各算各的,只用那一家看得到的东西)
+    tips = [insight(game.observation(s), game.config) for s in range(NUM_SEATS)]
+    view["shanten"] = [None if t is None else t["shanten"] for t in tips]
+    if tips[seat] is not None:
+        view["insight"] = tips[seat]
+    if record.meta.get("agents"):
+        view["seat_labels"] = [AGENT_LABELS.get(a, a) for a in record.meta["agents"]]
     view["hands"] = [counts_to_tiles(h) for h in game.hands]
     view["melds"] = [
         [{"type": m.type.name, "tile": m.tile, "from_seat": m.from_seat} for m in game.melds[s]]
@@ -255,6 +285,8 @@ def record_analysis(record: GameRecord, advisor: Any) -> Dict[str, Any]:
 
     模型看到的是当时那个座位自己的视图,不是事后摊开的牌。
     steps[i] 对应牌谱的第 i+1 步。只有一个选择的步骤标 forced,不参与统计。
+    每一步都有 value(模型估计这一家这一局还会得多少分)和 score(这一家当时已经得的分),
+    两者相加就是模型预计的最终得分,界面用它画曲线。
     """
     game = replay(record, upto=0, record_events=False)
     steps: List[Dict[str, Any]] = []
@@ -263,29 +295,55 @@ def record_analysis(record: GameRecord, advisor: Any) -> Dict[str, Any]:
     for action_id in record.actions:
         seat = game.current
         legal = game.legal_actions()
-        if len(legal) == 1:
-            steps.append({"seat": seat, "forced": True})
-        else:
-            probs, value = advisor.evaluate(game.observation(seat), legal)
+        probs, value = advisor.evaluate(game.observation(seat), legal)
+        row: Dict[str, Any] = {
+            "seat": seat,
+            "forced": len(legal) == 1,
+            "value": round(value, 2),
+            "score": game.scores[seat],
+        }
+        if len(legal) > 1:
             best = max(range(len(legal)), key=probs.__getitem__)
             chosen = next(i for i, a in enumerate(legal) if a.id == action_id)
             decisions[seat] += 1
             agreed[seat] += best == chosen
-            steps.append(
-                {
-                    "seat": seat,
-                    "forced": False,
-                    "agree": best == chosen,
-                    "best": {**_action_json(legal[best]), "prob": round(probs[best], 4), "text": str(legal[best])},
-                    "chosen": {**_action_json(legal[chosen]), "prob": round(probs[chosen], 4), "text": str(legal[chosen])},
-                    "value": round(value, 2),
-                }
+            ranked = sorted(zip(probs, legal), key=lambda x: -x[0])[:3]
+            row.update(
+                agree=best == chosen,
+                best={**_action_json(legal[best]), "prob": round(probs[best], 4), "text": str(legal[best])},
+                chosen={**_action_json(legal[chosen]), "prob": round(probs[chosen], 4), "text": str(legal[chosen])},
+                top=[{**_action_json(a), "prob": round(p, 4), "text": str(a)} for p, a in ranked],
+                tiles=_tile_probs(probs, legal),
             )
+        steps.append(row)
         game.step(action_id)
     return {
         "steps": steps,
         "summary": [{"seat": s, "decisions": decisions[s], "agreed": agreed[s]} for s in range(NUM_SEATS)],
+        "final": list(game.scores),
     }
+
+
+# ---------------------------------------------------------------------- 观战
+
+
+def spectate_record(
+    agents: Sequence[str], seed: Optional[int] = None, config: Optional[RuleConfig] = None
+) -> GameRecord:
+    """四个电脑打完一局,返回牌谱。界面拿到后按自己的速度一步一步放。"""
+    if len(agents) != NUM_SEATS:
+        raise ValueError("观战需要四个座位各选一个电脑")
+    if seed is None:
+        seed = random.randrange(1 << 30)
+    players = [make_agent(name, seed + s) for s, name in enumerate(agents)]
+    game = play_game(players, seed=seed, config=config, dealer=seed % NUM_SEATS)
+    meta = {
+        "saved_at": datetime.now().isoformat(timespec="seconds"),
+        "spectate": True,
+        "agents": list(agents),
+        "human_seat": 0,
+    }
+    return GameRecord.from_game(game, meta=meta)
 
 
 def _action_json(a: Action) -> Dict[str, Any]:

@@ -1155,6 +1155,411 @@ tr.is-me {
   color: var(--text-primary);
 }
 
+/* ---------------------------------------------------------------- 牌理: 向听数、进张、听牌 */
+
+/* 一排小牌,每张下面写着还剩几张 */
+.tile-counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  vertical-align: middle;
+}
+.tile-counts > span {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+}
+.tile-counts .tile {
+  width: calc(var(--xs-w) * 0.85);
+}
+.tile-counts i {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+.tile-counts .is-gone .tile {
+  filter: brightness(0.45);
+}
+.tile-counts .is-gone i {
+  color: var(--text-disabled);
+}
+
+/* 侧栏里的牌理: 规则算出来的,用中性色,和模型的建议(蓝色)区分开 */
+.tips {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--border-control);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.tips > span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.tips p {
+  margin: 0;
+}
+.tips-row {
+  display: grid;
+  gap: 6px;
+}
+.tips-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.waits {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.waits li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.waits .tile {
+  width: calc(var(--xs-w) * 0.85);
+}
+.waits b {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.waits i {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.waits .is-gone {
+  color: var(--text-disabled);
+}
+.waits .is-gone i {
+  color: var(--text-disabled);
+}
+
+/* 手牌上的标记: 上方是模型的概率条(蓝),牌面下沿是打出后的进张数(中性色) */
+.hand.has-probs {
+  padding-top: 46px;
+}
+.hand-tile {
+  position: relative;
+}
+.hand-tile .prob {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: calc(100% + 4px);
+  border-radius: 2px 2px 0 0;
+  background: var(--secondary);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.hand-tile .prob.is-top {
+  opacity: 1;
+}
+.hand-tile .prob i {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  translate: -50% 0;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+.hand.has-probs .hand-tile.is-void::after {
+  content: none;
+}
+.hand-tile .tip {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  translate: -50% 0;
+  min-width: 1.7em;
+  padding: 1px 4px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  background: var(--bg-base);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hand-tile .tip.is-best {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* 名牌上的向听数(回放和观战时四家都有) */
+.plate-shanten {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.plate-shanten.is-ready {
+  padding: 0 8px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- 图表 */
+
+.chart {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.chart figcaption {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.chart > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+.chart-grid {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+.chart-zero {
+  stroke: var(--border-control);
+  stroke-width: 1;
+}
+.chart-tick {
+  fill: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.chart-cursor {
+  stroke: var(--text-secondary);
+  stroke-width: 1;
+}
+.chart-hover {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+.chart-dot {
+  stroke: var(--bg-surface);
+  stroke-width: 2;
+}
+.chart-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.chart-legend span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.chart-legend b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.chart-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.chart-wide {
+  margin-top: 32px;
+}
+.chart-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.chart-readout b {
+  font-family: var(--font-heading);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- 观战和回放的播放控制 */
+
+.replay-play,
+.seat-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.replay-play .btn {
+  flex: 1;
+}
+.seat-pick > span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.segmented button {
+  min-width: 36px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.segmented button + button {
+  border-left: 1px solid var(--border-control);
+}
+.segmented button:hover {
+  background: var(--bg-overlay);
+}
+.segmented button.is-on {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.check input {
+  accent-color: var(--primary);
+}
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.latest .btn {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.side {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.chart-legend svg {
+  flex: none;
+}
+.replay-steps {
+  min-height: 132px;
+}
+
+/* ---------------------------------------------------------------- 开始页: 观战 */
+
+.lobby-watch {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+}
+.lobby-watch h2 {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+}
+.lobby-watch > p {
+  margin: 4px 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.lobby-seats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.lobby-seats label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.lobby-seats select {
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------- 段位梯 */
+
+.lobby-card.ladder {
+  width: min(880px, 100%);
+  align-self: start;
+}
+.ladder-scroll {
+  overflow-x: auto;
+}
+.ladder-table th,
+.ladder-table td {
+  white-space: nowrap;
+}
+.ladder-table tbody th {
+  font-weight: 600;
+}
+.ladder-table small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.ladder-table td b {
+  font-weight: 500;
+}
+.ladder-self {
+  background: repeating-linear-gradient(135deg, transparent 0 6px, var(--border-subtle) 6px 7px);
+}
+.lobby code {
+  padding: 1px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
 /* ---------------------------------------------------------------- 窄屏 / 减少动效 */
 
 @media (max-width: 900px) {
@@ -1181,6 +1586,9 @@ tr.is-me {
   :root {
     --lg-w: clamp(22px, 6.4vw, 44px);
     --xs-w: clamp(15px, 3.6vw, 24px);
+  }
+  .lobby-seats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

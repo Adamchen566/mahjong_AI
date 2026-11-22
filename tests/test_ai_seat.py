@@ -110,7 +110,7 @@ def test_record_analysis_compares_each_decision():
     steps = result["steps"]
     assert len(steps) == len(record.actions)
     free = [s for s in steps if not s["forced"]]
-    assert len(free) == len(spy.seen) > 20
+    assert len(spy.seen) == len(steps) and len(free) > 20  # 每一步都问一次模型(要画估值曲线)
     for s in free:
         assert s["agree"] == (s["best"]["id"] == s["chosen"]["id"])
         assert s["best"]["prob"] >= s["chosen"]["prob"] and s["best"]["text"]

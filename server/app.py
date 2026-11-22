@@ -14,14 +14,19 @@
 服务 -> 浏览器:
     {"type": "state", "match": {...}, "view": {...} | null, "events": [...]}
     {"type": "error", "message": "..."}
+
+观战(四个电脑对打)不走 WebSocket: POST /api/spectate 让服务端把一局打完,
+返回一个牌谱名,界面用回放的那一套接口按自己的速度播放。观战的牌谱只放在内存里。
 """
 from __future__ import annotations
 
 import asyncio
+import json
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -37,12 +42,15 @@ from .match import (
     record_analysis,
     record_steps,
     record_view,
+    spectate_record,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DIST = ROOT / "frontend" / "dist"
 DEFAULT_RECORDS = ROOT / "records"
+DEFAULT_LADDER = ROOT / "models" / "ladder.json"
 PLAYABLE_OPPONENTS = ("simple", "rule", "net")
+WATCH_KEEP = 20  # 内存里最多留几局观战的牌谱
 _AUTO = object()
 
 NOT_BUILT_PAGE = """<!doctype html><meta charset="utf-8"><title>麻将</title>
@@ -62,12 +70,15 @@ def create_app(
     bot_delay: float = 0.7,
     seed: Optional[int] = None,
     advisor: Any = _AUTO,
+    ladder_path: Path = DEFAULT_LADDER,
 ) -> FastAPI:
     """advisor: 提示和复盘分析用的模型。默认自动加载 models/chuanma.onnx,没有就没有这两个功能。"""
     app = FastAPI(title="chuanma")
     app.state.match = None
     app.state.advisor = load_advisor() if advisor is _AUTO else advisor
     app.state.analysis = {}  # 牌谱名 -> 分析结果,算过的不再算
+    app.state.watch = OrderedDict()  # 观战的牌谱: 名字 -> GameRecord,只在内存里
+    app.state.watch_no = 0
     app.state.lock = asyncio.Lock()
 
     # ------------------------------------------------------------------ HTTP
@@ -90,9 +101,9 @@ def create_app(
         return {"name": name, "meta": rec.meta, "scores": rec.scores, "steps": record_steps(rec)}
 
     @app.get("/api/records/{name}/view/{step}")
-    def record_at(name: str, step: int) -> Any:
+    def record_at(name: str, step: int, seat: Optional[int] = None) -> Any:
         rec = _load(name)
-        return {"step": max(0, min(step, len(rec.actions))), "view": record_view(rec, step)}
+        return {"step": max(0, min(step, len(rec.actions))), "view": record_view(rec, step, seat)}
 
     @app.get("/api/records/{name}/analysis")
     def record_ai_analysis(name: str) -> Any:
@@ -103,7 +114,33 @@ def create_app(
             app.state.analysis[name] = record_analysis(rec, app.state.advisor)
         return {"available": True, **app.state.analysis[name]}
 
+    @app.post("/api/spectate")
+    def spectate(body: Dict[str, Any] = Body(...)) -> Any:
+        """四个电脑打一局。agents 是东南西北四个座位各用哪种电脑。"""
+        agents = body.get("agents")
+        if not isinstance(agents, list) or len(agents) != 4 or any(a not in PLAYABLE_OPPONENTS for a in agents):
+            raise HTTPException(400, "agents 要给出四个座位各用哪种电脑")
+        if "net" in agents and not net_status()[0]:
+            raise HTTPException(400, f"神经网络现在用不了: {net_status()[1]}")
+        record = spectate_record(agents, seed=body.get("seed", seed))
+        app.state.watch_no += 1
+        name = f"watch-{app.state.watch_no}.json"
+        app.state.watch[name] = record
+        while len(app.state.watch) > WATCH_KEEP:
+            old, _ = app.state.watch.popitem(last=False)
+            app.state.analysis.pop(old, None)
+        return {"name": name, "steps": len(record.actions), "agents": agents}
+
+    @app.get("/api/ladder")
+    def ladder() -> Any:
+        """段位梯: 各个版本两两对打的成绩和训练曲线,由 python -m ai.ladder 生成。"""
+        if not ladder_path.is_file():
+            return {"available": False, "reason": "还没有生成段位梯的数据"}
+        return {"available": True, **json.loads(ladder_path.read_text(encoding="utf-8"))}
+
     def _load(name: str):
+        if name in app.state.watch:
+            return app.state.watch[name]
         if records_dir is None:
             raise HTTPException(404, "没有牌谱目录")
         try:

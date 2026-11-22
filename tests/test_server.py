@@ -106,7 +106,8 @@ def test_record_replay_helpers(tmp_path):
     rec = load_record(tmp_path, listing[0]["name"])
     steps = record_steps(rec)
     assert len(steps) == len(rec.actions)
-    assert all(set(s) == {"seat", "text"} for s in steps)
+    assert all(set(s) == {"seat", "text", "type", "tile", "zimo"} for s in steps)
+    assert not any(s["zimo"] for s in steps if s["type"] != "HU")
     start = record_view(rec, 0)
     assert [len(h) for h in start["hands"]] == [14, 13, 13, 13]
     end = record_view(rec, 10**6)  # 超出范围会被截到最后一步

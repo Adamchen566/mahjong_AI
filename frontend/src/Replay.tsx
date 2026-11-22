@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Table } from './Table'
-import { signed } from './tiles'
-import type { RecordSummary, View } from './types'
+import { signed, WINDS } from './tiles'
+import type { Analysis, RecordSummary, View } from './types'
 
 interface Step {
   seat: number
@@ -77,12 +77,22 @@ function Viewer({ name, onBack, onClose }: { name: string; onBack: () => void; o
   const [step, setStep] = useState(0)
   const [view, setView] = useState<View | null>(null)
   const [failed, setFailed] = useState(false)
+  const [me, setMe] = useState(0) // 这份牌谱里人坐的座位
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
 
   useEffect(() => {
     fetch(`/api/records/${name}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => setSteps(d.steps))
+      .then((d) => {
+        setSteps(d.steps)
+        setMe(d.meta?.human_seat ?? 0)
+      })
       .catch(() => setFailed(true))
+    // 模型的分析是附加的,拿不到也不影响回放
+    fetch(`/api/records/${name}/analysis`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setAnalysis)
+      .catch(() => setAnalysis({ available: false, reason: '分析没有算出来' }))
   }, [name])
 
   useEffect(() => {
@@ -98,6 +108,14 @@ function Viewer({ name, onBack, onClose }: { name: string; onBack: () => void; o
 
   const total = steps?.length ?? 0
   const go = (n: number) => setStep(Math.max(0, Math.min(total, n)))
+
+  // steps[i] 是第 i+1 步;停在第 step 步时,"接下来这一步"就是 steps[step]
+  const asteps = analysis?.available ? analysis.steps ?? [] : []
+  const upcoming = step < total ? asteps[step] : undefined
+  const mine = analysis?.summary?.find((s) => s.seat === me)
+  const differs = (i: number) => asteps[i]?.seat === me && asteps[i]?.agree === false
+  const nextDiffer = asteps.findIndex((_, i) => i >= step + 1 && differs(i))
+  const pct = (p: number) => `${Math.round(p * 100)}%`
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -171,10 +189,44 @@ function Viewer({ name, onBack, onClose }: { name: string; onBack: () => void; o
           aria-label="跳到第几步"
         />
         <p className="hint">也可以用键盘左右方向键。四家的牌都是明的。</p>
+
+        <div className="advice">
+          <span>模型怎么看</span>
+          {!analysis && <p>正在分析这一局</p>}
+          {analysis && !analysis.available && <p>没有分析: {analysis.reason}</p>}
+          {analysis?.available && (
+            <>
+              {mine && mine.decisions > 0 && (
+                <p>
+                  你做了 {mine.decisions} 次选择,其中 {mine.agreed} 次和模型的首选一样。
+                </p>
+              )}
+              {upcoming && !upcoming.forced && upcoming.best && upcoming.chosen && (
+                <ol>
+                  <li>
+                    <b>
+                      接下来轮到{upcoming.seat === me ? '你' : WINDS[upcoming.seat]},模型会{upcoming.best.text}
+                    </b>
+                    <i>{pct(upcoming.best.prob)}</i>
+                  </li>
+                  <li className={upcoming.agree ? '' : 'is-differ'}>
+                    <b>实际{upcoming.agree ? '也是这么走的' : `走的是${upcoming.chosen.text}`}</b>
+                    <i>{upcoming.agree ? '' : pct(upcoming.chosen.prob)}</i>
+                  </li>
+                </ol>
+              )}
+              {upcoming?.forced && <p>接下来这一步只有一个选择。</p>}
+              {!upcoming && <p>这一局已经走完。</p>}
+              <button className="btn" disabled={nextDiffer < 0} onClick={() => go(nextDiffer)}>
+                {nextDiffer < 0 ? '后面没有和模型不同的选择了' : '跳到你下一处和模型不同的选择'}
+              </button>
+            </>
+          )}
+        </div>
         <h3>每一步</h3>
         <ol className="log replay-steps" ref={listRef}>
           {steps?.map((s, i) => (
-            <li key={i} className={i + 1 === step ? 'is-now' : ''}>
+            <li key={i} className={[i + 1 === step ? 'is-now' : '', differs(i) ? 'is-differ' : ''].join(' ')}>
               <button className="link" onClick={() => go(i + 1)}>
                 {s.text}
               </button>

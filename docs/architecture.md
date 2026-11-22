@@ -317,6 +317,19 @@ React 19 + TypeScript + Vite,没有其他运行时依赖。
 
 开发界面时可以用 `npm run dev`,Vite 会把 `/api` 和 `/ws` 转给 8000 端口上的 Python 服务。
 
+### 9.5 模型入座、提示、复盘分析
+
+| 项 | 做法 |
+|---|---|
+| 模型文件 | `models/chuanma.onnx`,由 `python -m ai.export` 从训练存档导出。只含策略头和普通价值头,"看全场"的那一路不导出 |
+| 推理 | `ai/onnx_agent.py` 用 onnxruntime 单线程在 CPU 上跑,出一手牌约 0.7 毫秒。对局软件不需要 PyTorch |
+| 入座 | 登记表里的名字是 `net`。它和其他电脑一样只拿到自己座位的 `observation()` |
+| 缺模型时 | 没有模型文件或没装 onnxruntime:`net` 选不了,提示和分析停用,其余功能照常 |
+| 提示 | 浏览器发 `{"type": "hint", "on": true}`。之后轮到人时,视图里多一个 `hint`:`value`(模型估计这一局还会得多少分)和 `choices`(概率最高的三个动作,各带 `prob` 和 `text`) |
+| 牌局信息 | `match.hint_available`(有没有模型)、`match.hint_on` |
+| 对手列表 | `GET /api/opponents` 每项带 `available` 和 `reason` |
+| 复盘分析 | `GET /api/records/{name}/analysis`:`steps[i]` 对应牌谱第 i+1 步,有 `seat`、`forced`、`agree`、`best`、`chosen`、`value`;`summary` 是每个座位做了几次选择、几次和模型首选一样。模型看的是当时那个座位的视图,不是摊开的牌 |
+
 ## 10. 之后的阶段怎么接上来
 
 | 阶段 | 接入点 |

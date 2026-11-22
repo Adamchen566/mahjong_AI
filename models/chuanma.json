@@ -1,0 +1,8 @@
+{
+  "source": "checkpoints/bc/best.pt",
+  "stage": "bc",
+  "exported_at": "2026-11-22T02:52:33",
+  "obs_channels": 71,
+  "parameters": 1777365,
+  "note": "模仿模型: 对 3 个规则型 AI 1 万局 -0.006 [-0.054, +0.042]"
+}

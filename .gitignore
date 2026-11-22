@@ -22,6 +22,8 @@ data/
 *.pth
 *.onnx
 !legacy/yolov8n.pt
+# 发布给对局软件用的模型,入库
+!models/*.onnx
 
 # 密钥与本地配置
 .env

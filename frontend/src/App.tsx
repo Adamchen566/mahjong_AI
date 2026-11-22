@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Replay } from './Replay'
 import { Result } from './Result'
 import { setSoundEnabled, soundEnabled } from './sound'
@@ -47,6 +47,7 @@ export default function App() {
         error={game.error}
         onRecords={() => setReplay('list')}
         onQuit={game.quitMatch}
+        onHint={game.setHint}
       />
     </div>
   )
@@ -56,9 +57,21 @@ export default function App() {
 
 function Lobby({ onStart, onRecords, connected }: { onStart: (opponent: string) => void; onRecords: () => void; connected: boolean }) {
   const [opponent, setOpponent] = useState('rule')
+  // 神经网络对手要有模型文件才能选;问一下服务端
+  const [netOff, setNetOff] = useState<string | null>('正在检查模型')
+  useEffect(() => {
+    fetch('/api/opponents')
+      .then((r) => r.json())
+      .then((list: { id: string; available: boolean; reason: string }[]) => {
+        const net = list.find((o) => o.id === 'net')
+        setNetOff(net?.available ? null : net?.reason || '这个版本没有带模型')
+      })
+      .catch(() => setNetOff('问不到本地服务'))
+  }, [])
   const options = [
-    { id: 'rule', name: '规则型', note: '会算向听和进张,只在有用的时候碰牌' },
-    { id: 'simple', name: '简单', note: '能碰就碰、能杠就杠,丢最孤立的牌' },
+    { id: 'simple', name: '简单', note: '能碰就碰、能杠就杠,丢最孤立的牌', off: null },
+    { id: 'rule', name: '规则型', note: '会算向听和进张,只在有用的时候碰牌', off: null },
+    { id: 'net', name: '神经网络', note: '自己训练出来的模型: 先学规则型的打法,再靠自己和自己打来改进', off: netOff },
   ]
   return (
     <main className="lobby">
@@ -68,10 +81,17 @@ function Lobby({ onStart, onRecords, connected }: { onStart: (opponent: string) 
         <fieldset className="lobby-options">
           <legend>三个对手的水平</legend>
           {options.map((o) => (
-            <label key={o.id} className={opponent === o.id ? 'is-on' : ''}>
-              <input type="radio" name="opponent" value={o.id} checked={opponent === o.id} onChange={() => setOpponent(o.id)} />
+            <label key={o.id} className={o.off ? 'is-off' : opponent === o.id ? 'is-on' : ''}>
+              <input
+                type="radio"
+                name="opponent"
+                value={o.id}
+                checked={opponent === o.id}
+                disabled={!!o.off}
+                onChange={() => setOpponent(o.id)}
+              />
               <b>{o.name}</b>
-              <span>{o.note}</span>
+              <span>{o.off ? `现在选不了: ${o.off}` : o.note}</span>
             </label>
           ))}
         </fieldset>
@@ -99,9 +119,10 @@ interface SidebarProps {
   error: string | null
   onRecords: () => void
   onQuit: () => void
+  onHint: (on: boolean) => void
 }
 
-function Sidebar({ match, view, log, connected, error, onRecords, onQuit }: SidebarProps) {
+function Sidebar({ match, view, log, connected, error, onRecords, onQuit, onHint }: SidebarProps) {
   const me = match.human_seat
   const latest = log.length ? log[log.length - 1] : null
   const [soundOn, setSoundOn] = useState(soundEnabled())
@@ -144,6 +165,27 @@ function Sidebar({ match, view, log, connected, error, onRecords, onQuit }: Side
         </tbody>
       </table>
 
+      {match.hint_on && (
+        <div className="advice">
+          <span>模型的建议</span>
+          {view.hint ? (
+            <>
+              <ol>
+                {view.hint.choices.map((c) => (
+                  <li key={c.id}>
+                    <b>{c.text}</b>
+                    <i>{Math.round(c.prob * 100)}%</i>
+                  </li>
+                ))}
+              </ol>
+              <p>它估计这一局你还能得 {signed(Math.round(view.hint.value * 10) / 10)} 分</p>
+            </>
+          ) : (
+            <p>轮到你时会显示在这里</p>
+          )}
+        </div>
+      )}
+
       <div className="latest" aria-live="polite">
         <span>刚刚</span>
         {latest ? latest.text : '这一局还没有动静'}
@@ -173,6 +215,11 @@ function Sidebar({ match, view, log, connected, error, onRecords, onQuit }: Side
         <button className="btn" onClick={toggleSound} aria-pressed={soundOn}>
           声音 {soundOn ? '开' : '关'}
         </button>
+        {match.hint_available && (
+          <button className="btn" onClick={() => onHint(!match.hint_on)} aria-pressed={match.hint_on}>
+            提示 {match.hint_on ? '开' : '关'}
+          </button>
+        )}
         <button
           className="btn btn-ghost"
           onClick={() => {

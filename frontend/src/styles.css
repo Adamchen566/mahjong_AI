@@ -627,6 +627,10 @@ button {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
+.hand-tile.is-hinted:not(.is-selected) {
+  outline: 2px dashed var(--secondary);
+  outline-offset: 1px;
+}
 .hand-tile.is-drawn {
   margin-left: calc(var(--lg-w) * 0.3);
 }
@@ -781,6 +785,53 @@ tr.is-me {
 .latest span {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* 模型的建议(对局时的提示、回放时的分析)。用辅色蓝,不占琥珀色的份额 */
+.advice {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--secondary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.advice > span {
+  font-size: 12px;
+  color: var(--secondary);
+}
+.advice ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.advice li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.advice li b {
+  font-weight: 500;
+}
+.advice li i {
+  font-style: normal;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+.advice li.is-differ b {
+  color: var(--warning);
+}
+.advice p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.advice .btn {
+  justify-self: start;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
 /* 牌局记录: 默认收起,点开才显示;新的在最上面,不会自己滚动 */
@@ -1026,6 +1077,13 @@ tr.is-me {
 .lobby-options label:hover {
   background: var(--bg-overlay);
 }
+.lobby-options label.is-off {
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+.lobby-options label.is-off:hover {
+  background: none;
+}
 .lobby-options label.is-on {
   border-color: var(--primary-border);
   background: var(--primary-subtle);
@@ -1085,6 +1143,9 @@ tr.is-me {
 .replay-steps li.is-now {
   border-left-color: var(--primary);
   background: var(--primary-subtle);
+}
+.replay-steps li.is-differ {
+  border-left-color: var(--warning);
 }
 .replay-steps .link {
   width: 100%;

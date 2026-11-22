@@ -4,7 +4,8 @@
 刷新页面或重新打开浏览器会接着原来的牌局继续。
 
 浏览器 -> 服务:
-    {"type": "new_match", "opponent": "rule" | "simple"}
+    {"type": "new_match", "opponent": "rule" | "simple" | "net"}
+    {"type": "hint", "on": true}                 打开或关掉出牌提示(需要有模型)
     {"type": "action", "id": 12}                 执行一个动作
     {"type": "actions", "ids": [88, 89, 90]}     连续执行(换三张一次提交三张)
     {"type": "next_game"}                        开下一局
@@ -27,12 +28,22 @@ from fastapi.staticfiles import StaticFiles
 from ai import AGENT_LABELS
 from chuanma import IllegalAction
 
-from .match import Match, list_records, load_record, record_steps, record_view
+from .match import (
+    Match,
+    list_records,
+    load_advisor,
+    load_record,
+    net_status,
+    record_analysis,
+    record_steps,
+    record_view,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DIST = ROOT / "frontend" / "dist"
 DEFAULT_RECORDS = ROOT / "records"
-PLAYABLE_OPPONENTS = ("rule", "simple")
+PLAYABLE_OPPONENTS = ("simple", "rule", "net")
+_AUTO = object()
 
 NOT_BUILT_PAGE = """<!doctype html><meta charset="utf-8"><title>麻将</title>
 <body style="font-family: sans-serif; padding: 3rem; line-height: 1.8">
@@ -50,16 +61,24 @@ def create_app(
     dist_dir: Path = DEFAULT_DIST,
     bot_delay: float = 0.7,
     seed: Optional[int] = None,
+    advisor: Any = _AUTO,
 ) -> FastAPI:
+    """advisor: 提示和复盘分析用的模型。默认自动加载 models/chuanma.onnx,没有就没有这两个功能。"""
     app = FastAPI(title="chuanma")
     app.state.match = None
+    app.state.advisor = load_advisor() if advisor is _AUTO else advisor
+    app.state.analysis = {}  # 牌谱名 -> 分析结果,算过的不再算
     app.state.lock = asyncio.Lock()
 
     # ------------------------------------------------------------------ HTTP
 
     @app.get("/api/opponents")
     def opponents() -> Any:
-        return [{"id": k, "label": AGENT_LABELS[k]} for k in PLAYABLE_OPPONENTS]
+        ok, reason = net_status()
+        return [
+            {"id": k, "label": AGENT_LABELS[k], "available": ok if k == "net" else True, "reason": reason if k == "net" else ""}
+            for k in PLAYABLE_OPPONENTS
+        ]
 
     @app.get("/api/records")
     def records() -> Any:
@@ -74,6 +93,15 @@ def create_app(
     def record_at(name: str, step: int) -> Any:
         rec = _load(name)
         return {"step": max(0, min(step, len(rec.actions))), "view": record_view(rec, step)}
+
+    @app.get("/api/records/{name}/analysis")
+    def record_ai_analysis(name: str) -> Any:
+        if app.state.advisor is None:
+            return {"available": False, "reason": net_status()[1] or "没有可用的模型"}
+        rec = _load(name)
+        if name not in app.state.analysis:
+            app.state.analysis[name] = record_analysis(rec, app.state.advisor)
+        return {"available": True, **app.state.analysis[name]}
 
     def _load(name: str):
         if records_dir is None:
@@ -112,13 +140,19 @@ def create_app(
                 opponent = msg.get("opponent", "rule")
                 if opponent not in PLAYABLE_OPPONENTS:
                     raise ValueError(f"未知的对手类型: {opponent}")
-                match = Match(opponent=opponent, seed=seed, records_dir=records_dir)
+                if opponent == "net" and not net_status()[0]:
+                    raise ValueError(f"神经网络对手现在用不了: {net_status()[1]}")
+                match = Match(opponent=opponent, seed=seed, records_dir=records_dir, advisor=app.state.advisor)
                 app.state.match = match
                 match.start_game()
             elif kind == "quit_match":
                 app.state.match = None
             elif match is None:
                 raise ValueError("还没有开始牌局")
+            elif kind == "hint":
+                if match.advisor is None:
+                    raise ValueError("没有可用的模型,开不了提示")
+                match.hint_on = bool(msg.get("on"))
             elif kind == "action":
                 match.human_action(msg["id"])
             elif kind == "actions":

@@ -9,7 +9,7 @@ import random
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ai import AGENT_LABELS, make_agent
 from chuanma import Action, Game, GameRecord, RuleConfig, replay
@@ -20,6 +20,37 @@ SEAT_NAMES = ("东", "南", "西", "北")
 RECORD_NAME = re.compile(r"^[A-Za-z0-9_\-]+\.json$")
 
 
+def net_status() -> Tuple[bool, str]:
+    """训练出的模型能不能用,以及不能用的原因。"""
+    try:
+        from ai.onnx_agent import model_status
+    except ImportError:
+        return False, "没有安装 numpy"
+    return model_status()
+
+
+def load_advisor() -> Optional[Any]:
+    """提示和复盘分析用的模型。没有模型文件或缺依赖时返回 None,软件照常能玩。"""
+    if not net_status()[0]:
+        return None
+    from ai.onnx_agent import OnnxAgent
+
+    return OnnxAgent()
+
+
+def advise(advisor: Any, obs: Dict[str, Any], legal: List[Action], top: int = 3) -> Dict[str, Any]:
+    """模型对这个局面的看法: 概率最高的几个动作,和它估计这一局还会得多少分。
+
+    obs 必须是某个座位自己的 observation(),所以建议里不可能用到别人的手牌。
+    """
+    probs, value = advisor.evaluate(obs, legal)
+    ranked = sorted(zip(probs, legal), key=lambda x: -x[0])[:top]
+    return {
+        "value": round(value, 2),
+        "choices": [{**_action_json(a), "prob": round(p, 4), "text": str(a)} for p, a in ranked],
+    }
+
+
 class Match:
     def __init__(
         self,
@@ -28,7 +59,10 @@ class Match:
         human_seat: int = 0,
         config: Optional[RuleConfig] = None,
         records_dir: Optional[Path] = None,
+        advisor: Optional[Any] = None,
     ) -> None:
+        self.advisor = advisor  # 给提示用的模型;None 表示没有
+        self.hint_on = False
         self.opponent = opponent
         self.human_seat = human_seat
         self.config = config or RuleConfig()
@@ -128,6 +162,8 @@ class Match:
         view["legal"] = (
             [_action_json(a) for a in g.legal_actions()] if self.waiting_for_human else []
         )
+        if self.hint_on and self.advisor is not None and self.waiting_for_human:
+            view["hint"] = advise(self.advisor, g.observation(self.human_seat), g.legal_actions())
         if g.is_over:
             view["transfers"] = [_transfer_json(t) for t in g.transfers]
             view["record"] = self.last_record
@@ -144,6 +180,8 @@ class Match:
             "opponent_label": AGENT_LABELS.get(self.opponent, self.opponent),
             "human_seat": self.human_seat,
             "seat_names": list(SEAT_NAMES),
+            "hint_available": self.advisor is not None,
+            "hint_on": self.hint_on and self.advisor is not None,
         }
 
 
@@ -210,6 +248,44 @@ def record_view(record: GameRecord, step: int) -> Dict[str, Any]:
     view["legal"] = []
     view["transfers"] = [_transfer_json(t) for t in game.transfers]
     return view
+
+
+def record_analysis(record: GameRecord, advisor: Any) -> Dict[str, Any]:
+    """把牌谱从头走一遍,每个决策点问模型"你会怎么走",和实际走的对比。
+
+    模型看到的是当时那个座位自己的视图,不是事后摊开的牌。
+    steps[i] 对应牌谱的第 i+1 步。只有一个选择的步骤标 forced,不参与统计。
+    """
+    game = replay(record, upto=0, record_events=False)
+    steps: List[Dict[str, Any]] = []
+    decisions = [0] * NUM_SEATS
+    agreed = [0] * NUM_SEATS
+    for action_id in record.actions:
+        seat = game.current
+        legal = game.legal_actions()
+        if len(legal) == 1:
+            steps.append({"seat": seat, "forced": True})
+        else:
+            probs, value = advisor.evaluate(game.observation(seat), legal)
+            best = max(range(len(legal)), key=probs.__getitem__)
+            chosen = next(i for i, a in enumerate(legal) if a.id == action_id)
+            decisions[seat] += 1
+            agreed[seat] += best == chosen
+            steps.append(
+                {
+                    "seat": seat,
+                    "forced": False,
+                    "agree": best == chosen,
+                    "best": {**_action_json(legal[best]), "prob": round(probs[best], 4), "text": str(legal[best])},
+                    "chosen": {**_action_json(legal[chosen]), "prob": round(probs[chosen], 4), "text": str(legal[chosen])},
+                    "value": round(value, 2),
+                }
+            )
+        game.step(action_id)
+    return {
+        "steps": steps,
+        "summary": [{"seat": s, "decisions": decisions[s], "agreed": agreed[s]} for s in range(NUM_SEATS)],
+    }
 
 
 def _action_json(a: Action) -> Dict[str, Any]:

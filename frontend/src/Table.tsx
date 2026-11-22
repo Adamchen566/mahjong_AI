@@ -238,6 +238,9 @@ function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'>
   }
 
   const voidSuit = view.void[me]
+  // 模型的首选如果是打出或换出某张牌,在手牌上把那张标出来
+  const top = view.hint?.choices[0]
+  const hintIndex = top && (top.type === 'DISCARD' || top.type === 'EXCHANGE') ? tiles.indexOf(top.tile) : -1
 
   return (
     <div className="self">
@@ -272,6 +275,7 @@ function Self({ view, callouts, onAct, onActMany }: Omit<TableProps, 'callouts'>
               'hand-tile',
               selected.includes(i) ? 'is-selected' : '',
               i === drawnIndex ? 'is-drawn' : '',
+              i === hintIndex ? 'is-hinted' : '',
               myTurn && (view.phase === 'TURN' || exchanging) && !pickable ? 'is-locked' : '',
               voidSuit != null && suitOf(t) === voidSuit ? 'is-void' : '',
             ].join(' ')

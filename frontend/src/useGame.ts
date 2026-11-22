@@ -104,6 +104,7 @@ export function useGame() {
   const actMany = useCallback((ids: number[]) => send({ type: 'actions', ids }), [send])
   const nextGame = useCallback(() => send({ type: 'next_game' }), [send])
   const quitMatch = useCallback(() => send({ type: 'quit_match' }), [send])
+  const setHint = useCallback((on: boolean) => send({ type: 'hint', on }), [send])
 
-  return { connected, ready, match, view, log, callouts, error, newMatch, act, actMany, nextGame, quitMatch }
+  return { connected, ready, match, view, log, callouts, error, newMatch, act, actMany, nextGame, quitMatch, setHint }
 }

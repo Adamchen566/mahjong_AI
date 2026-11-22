@@ -136,7 +136,7 @@ def recv_until_my_turn_or_end(ws):
 
 
 def test_http_endpoints(client):
-    assert [o["id"] for o in client.get("/api/opponents").json()] == ["rule", "simple"]
+    assert [o["id"] for o in client.get("/api/opponents").json()] == ["simple", "rule", "net"]
     assert client.get("/api/records").json() == []
     assert client.get("/api/records/nope.json").status_code == 404
     assert "还没有构建" in client.get("/").text

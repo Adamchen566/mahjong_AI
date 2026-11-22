@@ -24,6 +24,12 @@ export interface Legal {
   tile: number
 }
 
+/** 模型的建议: 概率最高的几个动作,和它估计这一局还会得多少分 */
+export interface Hint {
+  value: number
+  choices: (Legal & { prob: number; text: string })[]
+}
+
 export interface Transfer {
   kind: 'hu' | 'gang' | 'hua_zhu' | 'da_jiao' | 'tui_shui'
   payer: number
@@ -52,6 +58,7 @@ export interface View {
   pending_discard: { seat: number; tile: number; rob_kong?: boolean } | null
   exchange: { given: number[]; received: number[]; direction: number | null }
   legal: Legal[]
+  hint?: Hint // 打开提示、并且轮到你时才有
   hands?: number[][] // 牌局结束或回放时才有
   end_reason?: 'three_won' | 'wall_exhausted'
   transfers?: Transfer[]
@@ -65,6 +72,8 @@ export interface MatchInfo {
   opponent_label: string
   human_seat: number
   seat_names: string[]
+  hint_available: boolean // 有没有可用的模型
+  hint_on: boolean
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,6 +84,23 @@ export interface StateMessage {
   match: MatchInfo | null
   view: View | null
   events: GameEvent[]
+}
+
+/** 回放时模型对每一步的看法。steps[i] 对应牌谱的第 i+1 步 */
+export interface AnalysisStep {
+  seat: number
+  forced: boolean
+  agree?: boolean
+  best?: Legal & { prob: number; text: string }
+  chosen?: Legal & { prob: number; text: string }
+  value?: number
+}
+
+export interface Analysis {
+  available: boolean
+  reason?: string
+  steps?: AnalysisStep[]
+  summary?: { seat: number; decisions: number; agreed: number }[]
 }
 
 export interface RecordSummary {

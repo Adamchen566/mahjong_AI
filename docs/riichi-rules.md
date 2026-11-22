@@ -409,5 +409,7 @@
 | 界面 | `frontend/src/riichi/` | 开始页、牌桌(宝牌指示牌、本场、供托、自风、立直棒、横放的宣言牌、被吃碰走的牌变淡)、出牌和吃碰杠立直按钮、牌理提示、每局结算(役和番符、宝牌和里宝)、终局名次和名次分。沿用琥珀夜色的设计变量和川麻牌桌的样式 |
 | 赤五图片 | `tools/make_red_fives.py` | 把 5 万、5 筒、5 条的彩色笔画改成红色,生成 `man0/pin0/sou0.png` |
 
-还没做的:日麻牌谱的回放页、观战、报牌的声音、模型提示。
+| 牌谱和观战 | `server/riichi_records.py`、`frontend/src/riichi/RiichiReplay.tsx` | 牌谱列表、逐步回放(四家明牌、可以跳到第几局)、四个电脑对打的观战 |
+| 声音 | `frontend/src/sound.ts` 的 `playRiichiEvent` | 出牌、吃碰杠、立直、和牌的音效;四个音色报牌(字牌和"吃、立直、荣和"由 `tools/make_voice.py --missing` 生成) |
+| 模型 | `riichi_ai/`,见 [riichi-training.md](riichi-training.md) | 神经网络对手、打牌提示、点炮概率、复盘分析 |
 

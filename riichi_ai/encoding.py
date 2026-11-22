@@ -162,7 +162,7 @@ def _write(f: Dict[str, Any]) -> np.ndarray:
             fill("pending_kind", 0, 1)
         elif pending[2] == "ankan":
             fill("pending_kind", 1, 1)
-    return np.frombuffer(bytes(buf), dtype=np.uint8).reshape(NUM_CHANNELS, N)
+    return np.frombuffer(buf, dtype=np.uint8).reshape(NUM_CHANNELS, N)
 
 
 def _features(game: Game, seat: int) -> Dict[str, Any]:

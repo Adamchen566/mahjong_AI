@@ -1,4 +1,7 @@
-"""生成报牌的人声: 四个座位各用一个音色,27 种牌加上"碰、杠、胡、自摸"。
+"""生成报牌的人声: 四个座位各用一个音色,27 种数牌、7 种字牌,加上"碰、杠、胡、自摸、吃、立直、荣和"。
+
+川麻用前 27 种牌和"碰、杠、胡、自摸";日麻另外用字牌和"吃、立直、荣和"(牌的编号两边一致: 0-26 万筒条,
+27-33 东南西北白发中)。只补新加的句子用 --missing。
 
 这个脚本不在项目自己的环境里跑。它用的是另一个项目(眠屿)在本机部署的 Qwen3-TTS
 和那边已经定好的四个音色,所以要用那边的 Python 来运行:
@@ -36,6 +39,9 @@ NUMBERS = "一二三四五六七八九"
 SUITS = "万筒条"  # 和引擎里牌的编号顺序一致: 0-8 万,9-17 筒,18-26 条
 PHRASES = {f"t{s * 9 + r}": f"{NUMBERS[r]}{SUITS[s]}。" for s in range(3) for r in range(9)}
 PHRASES.update({"pong": "碰!", "gang": "杠!", "hu": "胡了!", "zimo": "自摸!"})
+# 日麻: 字牌和日麻特有的喊话
+PHRASES.update({f"t{27 + i}": f"{name}。" for i, name in enumerate("东南西北白发中")})
+PHRASES.update({"chi": "吃!", "riichi": "立直!", "ron": "荣和!"})
 
 MIN_SECONDS, MAX_SECONDS = 0.22, 1.6
 TARGET_RMS = 0.11
@@ -71,6 +77,7 @@ def main() -> int:
     ap.add_argument("--takes", type=int, default=3, help="每句话生成几遍")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--only", default="", help="只重做这些,例如 qingnian:t3,yujie:pong")
+    ap.add_argument("--missing", action="store_true", help="只生成还没有 mp3 的句子")
     ap.add_argument("--cpu", action="store_true")
     args = ap.parse_args()
 
@@ -86,6 +93,8 @@ def main() -> int:
     report = {}
     for vid, vname in VOICES:
         keys = [k for k in PHRASES if not only or (vid, k) in only]
+        if args.missing:
+            keys = [k for k in keys if not (out_dir / vid / f"{k}.mp3").is_file()]
         if not keys:
             continue
         vdir = Path(args.voices_dir) / vname
@@ -133,7 +142,7 @@ def main() -> int:
     (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
     old = {}
     report_path = raw_dir / "report.json"
-    if only and report_path.is_file():
+    if (only or args.missing) and report_path.is_file():
         old = json.loads(report_path.read_text(encoding="utf-8"))
     report_path.write_text(json.dumps({**old, **report}, ensure_ascii=False, indent=1), encoding="utf-8")
     suspect = [k for k, r in report.items() if r["suspect"]]

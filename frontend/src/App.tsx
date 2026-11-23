@@ -4,6 +4,7 @@ import { InsightPanel } from './Insight'
 import { Ladder } from './Ladder'
 import { Replay, Viewer } from './Replay'
 import { Result } from './Result'
+import { RiichiApp } from './riichi/RiichiApp'
 import { Table } from './Table'
 import { signed, whoIs, WINDS } from './tiles'
 import { SoundToggles, useInsightPreference } from './Toggles'
@@ -24,6 +25,7 @@ export default function App() {
   const [watchError, setWatchError] = useState<string | null>(null)
   const [ladder, setLadder] = useState(false)
   const [about, setAbout] = useState(false)
+  const [riichi, setRiichi] = useState(false) // 日本麻将的页面
   const [insightOn, setInsightOn] = useInsightPreference()
 
   // 让服务端把四个电脑的一局打完,拿到牌谱名之后在这边按自己的速度放
@@ -48,6 +50,7 @@ export default function App() {
   useEffect(() => {
     const page = location.hash.slice(1)
     if (page === 'about') setAbout(true)
+    if (page === 'riichi') setRiichi(true)
     if (page === 'ladder') setLadder(true)
     if (page === 'watch') void startWatch(DEFAULT_LINEUP)
     // 只在打开页面时看一次
@@ -64,6 +67,7 @@ export default function App() {
       />
     )
   }
+  if (riichi) return <RiichiApp onClose={() => setRiichi(false)} />
   if (ladder) return <Ladder onClose={() => setLadder(false)} />
   if (about) {
     return (
@@ -98,6 +102,7 @@ export default function App() {
         onWatch={startWatch}
         onLadder={() => setLadder(true)}
         onAbout={() => setAbout(true)}
+        onRiichi={() => setRiichi(true)}
         watchError={watchError}
         connected={game.connected}
       />
@@ -158,11 +163,12 @@ interface LobbyProps {
   onWatch: (agents: string[]) => void
   onLadder: () => void
   onAbout: () => void
+  onRiichi: () => void
   watchError: string | null
   connected: boolean
 }
 
-function Lobby({ onStart, onRecords, onWatch, onLadder, onAbout, watchError, connected }: LobbyProps) {
+function Lobby({ onStart, onRecords, onWatch, onLadder, onAbout, onRiichi, watchError, connected }: LobbyProps) {
   const [opponent, setOpponent] = useState('rule')
   // 神经网络对手要有模型文件才能选;问一下服务端
   const [list, setList] = useState<Opponent[]>(FALLBACK)
@@ -205,6 +211,9 @@ function Lobby({ onStart, onRecords, onWatch, onLadder, onAbout, watchError, con
           </button>
           <button className="btn btn-ghost" onClick={onRecords}>
             看以前的牌谱
+          </button>
+          <button className="btn btn-ghost" onClick={onRiichi}>
+            日本麻将
           </button>
         </div>
         {!connected && <p className="lobby-status">和本地服务断开了,正在重连</p>}

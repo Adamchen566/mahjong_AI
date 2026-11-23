@@ -44,6 +44,7 @@ from .match import (
     record_view,
     spectate_record,
 )
+from .riichi_ws import register_riichi
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DIST = ROOT / "frontend" / "dist"
@@ -215,6 +216,9 @@ def create_app(
                     await run_bots()
         except WebSocketDisconnect:
             return
+
+    # 日麻: /ws/riichi 和 /api/riichi/*,和上面的川麻互不影响
+    register_riichi(app, records_dir, bot_delay, seed, advisor="auto" if advisor is _AUTO else None)
 
     # ------------------------------------------------------------------ 静态页面
 

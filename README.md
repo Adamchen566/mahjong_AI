@@ -30,6 +30,19 @@
 
 联机对战不在当前范围内。完整计划见 [docs/roadmap.md](docs/roadmap.md)。
 
+## 日麻(立直麻将)
+
+同一个软件里还有一套日麻,按天凤段位战的规则写,和川麻的代码互不依赖(引擎 `riichi/`、训练 `riichi_ai/`)。
+
+| | |
+|---|---|
+| 能玩 | 1 人对 3 个电脑打东南战,赤宝牌、立直、副露、流局、点数和名次分;牌谱、观战、报牌人声和音效 |
+| AI | 先模仿规则型程序(持平),再自我对弈 15 万场半庄(3.9 小时),最后学 Mortal 的选择和 Q 值。另一批 1200 场半庄里对 3 个规则型平均每场 +8.43 名次分(95% 区间 +6.42 到 +10.44;只自我对弈时是 +3.68) |
+| 提示 | 模型首选的三个动作和概率、这一场的估值、每张牌打出去被荣和的概率("险") |
+| 外部对照 | 接了开源最强的 Mortal(只在本机,AGPL 运行时不入库)。Mortal 对 3 个规则型 +14.7;我们的模型对 3 个 Mortal 从 −11.4(只自我对弈)到 −8.8(学过 Mortal 之后),差距主要在防守 |
+
+规则见 [docs/riichi-rules.md](docs/riichi-rules.md),训练见 [docs/riichi-training.md](docs/riichi-training.md),Mortal 见 [docs/riichi-mortal.md](docs/riichi-mortal.md)。
+
 ## 打一局
 
 第一次用之前装依赖、构建界面(只需一次):
@@ -271,6 +284,9 @@ python -m pytest
 | [docs/ai-training.md](docs/ai-training.md) | AI 训练方案、规则型 AI 的做法与成绩、硬件条件、评估方法 |
 | [docs/phase4-tasks.md](docs/phase4-tasks.md) | 阶段 4 的逐项任务、完成标准、实测速度、起步参数 |
 | [docs/graduation-plan.md](docs/graduation-plan.md) | 从现在到项目收尾还要做的事、毕业标准、需要你定的决定 |
+| [docs/riichi-rules.md](docs/riichi-rules.md) | 日麻引擎实现的规则(天凤段位战)、规则型策略 |
+| [docs/riichi-training.md](docs/riichi-training.md) | 日麻 AI 的编码、网络、模仿学习、自我对弈和成绩 |
+| [docs/riichi-mortal.md](docs/riichi-mortal.md) | 接入 Mortal:安装、mjai 转换、同桌对比、蒸馏数据 |
 
 ## 环境
 

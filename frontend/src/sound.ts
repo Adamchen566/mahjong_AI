@@ -160,6 +160,58 @@ export function playEvent(ev: GameEvent, me: number, at = 0): number {
   }
 }
 
+/** 日麻的牌局事件出声(事件格式见 riichi/game.py)。牌的编号 0..33 和报牌音频的键 t0..t33 一致,赤 5 按普通 5 报。 */
+export function playRiichiEvent(ev: { type: string; seat?: number; tile?: number | null; [k: string]: unknown }, me: number, at = 0): number {
+  const seat = typeof ev.seat === 'number' ? ev.seat : -1
+  const mine = seat === me
+  const kind = (t: number) => (t >= 34 ? [4, 13, 22][t - 34] : t)
+  switch (ev.type) {
+    case 'hand_start':
+      for (let i = 0; i < 9; i++) tick(at + i * 0.05, 1 + ((i * 7) % 5) * 0.12, 0.16)
+      return 0.5
+    case 'draw':
+      if (!mine) return 0
+      tick(at)
+      return 0.06
+    case 'discard':
+      clack(at, mine ? 1 : 0.86, mine ? 0.55 : 0.4)
+      return typeof ev.tile === 'number' ? 0.12 + speak(seat, `t${kind(ev.tile)}`, at + 0.05) : 0.12
+    case 'riichi':
+      tick(at, 2.2, 0.25)
+      return 0.1 + speak(seat, 'riichi', at + 0.03)
+    case 'chi':
+      clack(at, 0.95)
+      clack(at + 0.11, 0.9)
+      return 0.28 + speak(seat, 'chi', at + 0.05)
+    case 'pon':
+      clack(at, 0.95)
+      clack(at + 0.11, 0.9)
+      return 0.28 + speak(seat, 'pong', at + 0.05)
+    case 'kan':
+      clack(at, 0.9)
+      clack(at + 0.1, 0.85)
+      clack(at + 0.2, 0.75, 0.6)
+      return 0.38 + speak(seat, 'gang', at + 0.05)
+    case 'hand_end': {
+      const r = ev.result as { type: string; wins?: { seat: number; tsumo: boolean }[] }
+      if (r.type !== 'win' || !r.wins?.length) {
+        note(at, 440, 0.1, 0.5, 'sine')
+        return 0.4
+      }
+      r.wins.forEach((w, i) => speak(w.seat, w.tsumo ? 'zimo' : 'ron', at + i * 0.35))
+      if (r.wins.some((w) => w.seat === me)) {
+        ;[523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(at + i * 0.09, f, 0.2, 0.8))
+        return 0.7
+      }
+      note(at, 659.25, 0.14, 0.5)
+      note(at + 0.1, 880, 0.14, 0.6)
+      return 0.4
+    }
+    default:
+      return 0
+  }
+}
+
 /** 一局结束: 赢了上行,输了下行,平了一声。 */
 export function playEnd(score: number, at = 0): void {
   if (score > 0) [392, 493.88, 587.33, 783.99].forEach((f, i) => note(at + i * 0.12, f, 0.16, 0.9))
@@ -176,7 +228,7 @@ export function playAlert(at = 0): void {
 // ---------------------------------------------------------------- 报牌的人声
 
 // 四个座位各用一个音色,打出什么牌就报什么,碰、杠、胡、自摸也喊出来。
-// 音频在 /voice/<音色>/<键>.mp3,键是 t0..t26(27 种牌)和 pong、gang、hu、zimo;
+// 音频在 /voice/<音色>/<键>.mp3,键是 t0..t33(34 种牌)和 pong、gang、hu、zimo、chi、riichi、ron;
 // /voice/manifest.json 列出有哪些音色。文件由 tools/make_voice.py 生成,没有这些文件时这个功能自动隐藏。
 
 const VOICE_KEY = 'mahjong.voice'

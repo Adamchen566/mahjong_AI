@@ -25,6 +25,7 @@ DEFAULT_PLAYERS: List[Tuple[str, str, str, str]] = [
     ("shanten", "规则型", "向听数 + 进张,听牌就立直", "shanten"),
     ("bc", "模仿模型", "只学了规则型的打法", "checkpoints/riichi_bc/best.pt"),
     ("ppo", "自我对弈", "定期评估里成绩最好的一版", "checkpoints/riichi_ppo/best.pt"),
+    ("mortal_bc", "学过 Mortal", "从自我对弈出发,学了 Mortal 的选择和 Q 值", "checkpoints/riichi_mortal_bc/best.pt"),
 ]
 
 

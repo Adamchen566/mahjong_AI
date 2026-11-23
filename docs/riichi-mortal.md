@@ -98,11 +98,44 @@ python -m riichi_ai.mortal generate --games 2000 --workers 12 --out data/rmortal
 
 试生成的蒸馏数据(四家 Mortal,24 场半庄):1.6 万个决策点,6 个进程 99 秒。Q 值最大的动作和 Mortal 实际选的 99.9% 一致;第一和第二选择的 Q 值差中位数约 2,所以软标签的温度先取 1。
 
-## 6. 下一步
+## 6. 学 Mortal(2026-11-23)
+
+整条流程在 `.mortal/learn_mortal.sh`(本机,不入库),一步失败就停:
+
+```bash
+python -m riichi_ai.mortal generate --games 200  --workers 10 --seed 32000000 --out data/rmortal/val
+python -m riichi_ai.mortal generate --games 4000 --workers 10 --seed 31000000 --out data/rmortal/train
+python -m riichi_ai.train_bc --data data/rmortal/train --val data/rmortal/val --out checkpoints/riichi_mortal_bc   --init checkpoints/riichi_ppo/best.pt --soft-weight 1.0 --soft-temp 1.0 --lr 5e-4 --epochs 3
+python -m riichi_ai.export --checkpoint checkpoints/riichi_mortal_bc/best.pt --out models/riichi.onnx
+```
+
+| 项 | 内容 |
+|---|---|
+| 数据 | 四家 Mortal,训练集 4000 场半庄(238 万个决策点,10 个进程 88 分钟),验证集 200 场(11.9 万个,6 分钟);Mortal 一共决定 264 万次,0 次对不上 |
+| 训练 | 从自我对弈第 180 轮出发;损失 = 硬标签 + 软标签(softmax(Q / 1) 的交叉熵,权重 1);学习率 5e-4,3 轮,RTX 4060 Ti 5.5 分钟 |
+| 验证集同步率 | 88.0%:出牌 86.1%、碰 87.6%、吃 62.6%、立直 81.0%、过 98.1%、和牌 100% |
+| 入座 | 导出成 `models/riichi.onnx`,替换了只自我对弈的那一版 |
+
+和只自我对弈的第 180 轮比(同一批种子、同样场数):
+
+| 对手 | 只自我对弈 | 学过 Mortal | 看法 |
+|---|---|---|---|
+| 3 个规则型(种子 2000 万起,1200 场半庄) | +3.68 [+1.88, +5.47] | **+8.43 [+6.42, +10.44]** | 区间不重叠,确实变强 |
+| 放铳率(对规则型) | 12–13%(定期评估) | **9.7%** | 主要的提升在防守 |
+| 3 个 Mortal(种子 3000 万起,160 场半庄) | −11.36 [−17.74, −4.98] | −8.84 [−13.49, −4.20] | 方向对,区间重叠,还说不准 |
+| 放铳率(对 Mortal) | 18.9% | 15.5% | — |
+
+| 没做的 / 没核实的 | 说明 |
+|---|---|
+| 两版直接同桌 | 没打过 |
+| 吃 | 同步率只有 62.6%,最弱的一类 |
+| 大明杠 | 同步率 0,应该是样本太少,没核实 |
+| 段位梯 | `models/riichi_ladder.json` 还是只自我对弈时的四个选手,没把新版加进去 |
+
+## 7. 下一步
 
 | 顺序 | 做什么 |
 |---|---|
-| 1 | 四家 Mortal 生成 4000 场半庄左右(约 280 万个决策点;12 个进程约 2–3 小时) |
-| 2 | 从自我对弈第 180 轮出发,`train_bc --init ... --soft-weight 1.0` 学 Mortal 的选择和 Q 值分布 |
-| 3 | 对 Mortal 同桌评估,再接自我对弈 |
-| 可选 | 把多桌的 Mortal 推理合成一批放到显卡上,生成会快很多,要再写一段代码 |
+| 1 | 从学过 Mortal 的这一版接着自我对弈,看能不能保住防守、再往上走 |
+| 2 | 段位梯加上新版,和只自我对弈的那版直接同桌比 |
+| 可选 | 把多桌的 Mortal 推理合成一批放到显卡上,生成会快很多,能生成更多数据 |

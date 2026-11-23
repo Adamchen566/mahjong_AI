@@ -1,6 +1,6 @@
 # 日麻 AI 训练
 
-路线和川麻一样([ai-training.md](ai-training.md)):规则型策略打底 → 模仿学习 → 自我对弈强化学习 → 导出 ONNX 入座。代码在 `riichi_ai/`,和川麻的 `ai/` 互不依赖。没有用天凤牌谱,也没有用外部的日麻环境,全部用本项目自己的引擎 `riichi/` 和训练代码。外部 AI Mortal 只用来当对照和下一步的老师,见 [riichi-mortal.md](riichi-mortal.md)。
+路线和川麻一样([ai-training.md](ai-training.md)):规则型策略打底 → 模仿学习 → 自我对弈强化学习 → 导出 ONNX 入座。代码在 `riichi_ai/`,和川麻的 `ai/` 互不依赖。没有用天凤牌谱,也没有用外部的日麻环境,全部用本项目自己的引擎 `riichi/` 和训练代码。外部 AI Mortal 用来当对照,也当了最后一步的老师(现在入座的模型就是学过它的版本),见 [riichi-mortal.md](riichi-mortal.md)。
 
 ## 1. 和川麻不一样的地方
 
@@ -91,7 +91,7 @@ python -m riichi_ai.export --checkpoint checkpoints/riichi_ppo/best.pt --out mod
 | 项 | 内容 |
 |---|---|
 | 训练量 | 295 轮,15.2 万场半庄,3.9 小时(第 100 轮时因为同时跑别的评估内存不足中断过一次,从 latest.pt 接着训,第 100 轮的评估没留下) |
-| 最好的一版 | 第 180 轮(9.4 万场半庄,2.5 小时),导出成 `models/riichi.onnx` |
+| 最好的一版 | 第 180 轮(9.4 万场半庄,2.5 小时)。它又学了 Mortal 之后才导出成现在的 `models/riichi.onnx`,见 [riichi-mortal.md](riichi-mortal.md) 第 6 节 |
 | 之后 | 在 +3 到 +6 之间来回,没有更高;放铳率还在慢慢降(第 280 轮 12.0%) |
 
 定期评估(对 3 个规则型,150 个种子 × 4 = 600 场半庄):
@@ -114,7 +114,7 @@ python -m riichi_ai.export --checkpoint checkpoints/riichi_ppo/best.pt --out mod
 | 模仿模型 | +58.49 | −0.99 [−2.54, +0.56] | — | −6.38 [−8.29, −4.47] |
 | 自我对弈 | +60.73 | **+3.68 [+1.88, +5.47]** | **+5.75 [+3.84, +7.65]** | — |
 
-换了种子之后是 +3.68,比定期评估里的 +5.90 低,但仍然显著强过规则型和模仿模型。和外部最强的开源 AI 比还差得远,见 [riichi-mortal.md](riichi-mortal.md)。
+换了种子之后是 +3.68,比定期评估里的 +5.90 低,但仍然显著强过规则型和模仿模型。和外部最强的开源 AI 比还差得远。之后从这一版出发学 Mortal,对 3 个规则型提到 +8.43,见 [riichi-mortal.md](riichi-mortal.md)。
 
 ## 6. 入座和提示
 

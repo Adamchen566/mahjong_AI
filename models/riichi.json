@@ -1,8 +1,8 @@
 {
-  "source": "checkpoints/riichi_ppo/best.pt",
-  "stage": "ppo",
-  "exported_at": "2026-11-23T01:19:37",
+  "source": "checkpoints/riichi_mortal_bc/best.pt",
+  "stage": "bc",
+  "exported_at": "2026-11-23T18:08:28",
   "obs_channels": 80,
   "parameters": 2249370,
-  "note": ""
+  "note": "从自我对弈第 180 轮出发,学 Mortal-S42 的选择和 Q 值软标签;对 3 个规则型 +8.43"
 }

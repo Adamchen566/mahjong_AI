@@ -43,3 +43,6 @@ Thumbs.db
 
 # 日麻算分对照用的虚拟环境
 .venv-riichi/
+
+# Mortal 对照(AGPL 运行时 + 权重,只在本机用,不入库)
+.mortal/

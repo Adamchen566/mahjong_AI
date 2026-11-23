@@ -26,6 +26,8 @@ class Arrays(NamedTuple):
     ret: np.ndarray  # (n,) float32,名次分
     danger: np.ndarray  # (n, 34) float32
     has_danger: np.ndarray  # (n,) float32
+    q: np.ndarray  # (n, 119) float32,老师(Mortal)的 Q 值,不合法或没有的是 -inf
+    has_q: np.ndarray  # (n,) float32,这一条有没有 Q 值(规则型老师的数据没有)
 
 
 class Dataset:
@@ -50,6 +52,10 @@ class Dataset:
         self.ret = np.empty(n, dtype=np.float32)
         self.danger_bits = np.empty((n, 5), dtype=np.uint8)
         self.has_danger = np.empty(n, dtype=np.uint8)
+        # 只有带 Q 值的数据(Mortal 当老师)才占这块内存;否则用一行占位
+        any_q = any("q" in np.load(p).files for p in shards[:1] + shards[-1:])
+        self.q = np.full((n if any_q else 1, NUM_ACTIONS), -np.inf, dtype=np.float16)
+        self.has_q = np.zeros(n, dtype=np.uint8)
         pos = 0
         for path in shards:
             if pos >= n:
@@ -64,6 +70,9 @@ class Dataset:
                 self.ret[sl] = z["ret"][:k]
                 self.danger_bits[sl] = z["danger"][:k]
                 self.has_danger[sl] = z["has_danger"][:k]
+                if "q" in z.files and len(self.q) > 1:
+                    self.q[sl] = z["q"][:k]
+                    self.has_q[sl] = 1
                 pos += k
         if pos != n:
             raise ValueError(f"meta.json 说有 {total} 个样本,实际只读到 {pos} 个")
@@ -83,6 +92,8 @@ class Dataset:
             self.ret[idx],
             danger,
             self.has_danger[idx].astype(np.float32),
+            self.q[idx if len(self.q) > 1 else np.zeros_like(idx)].astype(np.float32),
+            self.has_q[idx].astype(np.float32),
         )
 
     def batches(self, batch_size: int, shuffle: bool = True, seed: int = 0, drop_last: bool = False) -> Iterator[Arrays]:

@@ -1,0 +1,8 @@
+{
+  "source": "checkpoints/riichi_ppo/best.pt",
+  "stage": "ppo",
+  "exported_at": "2026-11-23T01:19:37",
+  "obs_channels": 80,
+  "parameters": 2249370,
+  "note": ""
+}

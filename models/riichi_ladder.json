@@ -1,0 +1,149 @@
+{
+ "generated_at": "2026-11-23T01:37:56",
+ "deals": 300,
+ "seed": 20000000,
+ "players": [
+  {
+   "id": "simple",
+   "name": "简单",
+   "note": "不吃不碰不立直,丢最孤立的牌"
+  },
+  {
+   "id": "shanten",
+   "name": "规则型",
+   "note": "向听数 + 进张,听牌就立直"
+  },
+  {
+   "id": "bc",
+   "name": "模仿模型",
+   "note": "只学了规则型的打法"
+  },
+  {
+   "id": "ppo",
+   "name": "自我对弈",
+   "note": "定期评估里成绩最好的一版"
+  }
+ ],
+ "matrix": [
+  [
+   null,
+   {
+    "points": -36.583,
+    "lo": -37.689,
+    "hi": -35.478,
+    "avg_rank": 3.5833,
+    "win_rate": 0.0526,
+    "deal_in_rate": 0.2281,
+    "games": 1200
+   },
+   {
+    "points": -35.281,
+    "lo": -36.436,
+    "hi": -34.125,
+    "avg_rank": 3.5342,
+    "win_rate": 0.0568,
+    "deal_in_rate": 0.2283,
+    "games": 1200
+   },
+   {
+    "points": -39.326,
+    "lo": -40.384,
+    "hi": -38.268,
+    "avg_rank": 3.6667,
+    "win_rate": 0.0513,
+    "deal_in_rate": 0.2492,
+    "games": 1200
+   }
+  ],
+  [
+   {
+    "points": 58.271,
+    "lo": 56.79,
+    "hi": 59.752,
+    "avg_rank": 1.1492,
+    "win_rate": 0.4281,
+    "deal_in_rate": 0.0499,
+    "games": 1200
+   },
+   null,
+   {
+    "points": 0.438,
+    "lo": -1.005,
+    "hi": 1.88,
+    "avg_rank": 2.4975,
+    "win_rate": 0.2318,
+    "deal_in_rate": 0.1571,
+    "games": 1200
+   },
+   {
+    "points": -5.627,
+    "lo": -7.681,
+    "hi": -3.572,
+    "avg_rank": 2.6658,
+    "win_rate": 0.2116,
+    "deal_in_rate": 0.1799,
+    "games": 1200
+   }
+  ],
+  [
+   {
+    "points": 58.489,
+    "lo": 57.052,
+    "hi": 59.926,
+    "avg_rank": 1.1433,
+    "win_rate": 0.4308,
+    "deal_in_rate": 0.0514,
+    "games": 1200
+   },
+   {
+    "points": -0.99,
+    "lo": -2.538,
+    "hi": 0.558,
+    "avg_rank": 2.5333,
+    "win_rate": 0.2207,
+    "deal_in_rate": 0.1659,
+    "games": 1200
+   },
+   null,
+   {
+    "points": -6.377,
+    "lo": -8.286,
+    "hi": -4.467,
+    "avg_rank": 2.6867,
+    "win_rate": 0.2049,
+    "deal_in_rate": 0.1809,
+    "games": 1200
+   }
+  ],
+  [
+   {
+    "points": 60.728,
+    "lo": 59.358,
+    "hi": 62.099,
+    "avg_rank": 1.1275,
+    "win_rate": 0.4459,
+    "deal_in_rate": 0.051,
+    "games": 1200
+   },
+   {
+    "points": 3.678,
+    "lo": 1.881,
+    "hi": 5.474,
+    "avg_rank": 2.405,
+    "win_rate": 0.2307,
+    "deal_in_rate": 0.1288,
+    "games": 1200
+   },
+   {
+    "points": 5.747,
+    "lo": 3.839,
+    "hi": 7.655,
+    "avg_rank": 2.3467,
+    "win_rate": 0.2357,
+    "deal_in_rate": 0.1236,
+    "games": 1200
+   },
+   null
+  ]
+ ]
+}

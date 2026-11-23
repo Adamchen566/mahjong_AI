@@ -25,7 +25,7 @@ import torch.nn.functional as F
 from riichi.actions import Action
 
 from .dataset import Arrays, Dataset
-from .model import VALUE_SCALE, ModelConfig, RiichiNet, save_checkpoint
+from .model import VALUE_SCALE, ModelConfig, RiichiNet, load_model, save_checkpoint
 
 
 def to_device(batch: Arrays, device: torch.device):
@@ -54,7 +54,30 @@ def danger_loss(logits: torch.Tensor, labels: torch.Tensor, has: torch.Tensor) -
     return (per * has).sum() / has.sum().clamp(min=1.0)
 
 
-def losses(model: RiichiNet, obs, oracle, mask, action, ret, danger, has, value_weight: float, danger_weight: float):
+def soft_loss(logits: torch.Tensor, q: torch.Tensor, has_q: torch.Tensor, temp: float) -> torch.Tensor:
+    """软标签蒸馏: 学老师 softmax(Q / 温度) 的分布(交叉熵),只算有 Q 值的样本。"""
+    target = torch.softmax(q.float() / temp, dim=1)  # 不合法的 Q 是 -inf → 概率 0
+    logp = torch.log_softmax(logits.float(), dim=1)
+    per = -torch.where(target > 0, target * logp, torch.zeros_like(logp)).sum(1)
+    return (per * has_q).sum() / has_q.sum().clamp(min=1.0)
+
+
+def losses(
+    model: RiichiNet,
+    obs,
+    oracle,
+    mask,
+    action,
+    ret,
+    danger,
+    has,
+    q,
+    has_q,
+    value_weight: float,
+    danger_weight: float,
+    soft_weight: float = 0.0,
+    soft_temp: float = 1.0,
+):
     out = model(obs, mask, oracle)
     policy = F.cross_entropy(out.logits, action)
     target = ret / VALUE_SCALE
@@ -62,6 +85,8 @@ def losses(model: RiichiNet, obs, oracle, mask, action, ret, danger, has, value_
     oracle_value = F.smooth_l1_loss(out.oracle_value, target)
     dl = danger_loss(out.danger, danger, has)
     total = policy + value_weight * (value + oracle_value) + danger_weight * dl
+    if soft_weight:
+        total = total + soft_weight * soft_loss(out.logits, q, has_q, soft_temp)
     return total, policy, value, oracle_value, dl, out
 
 
@@ -74,9 +99,11 @@ def validate(model: RiichiNet, data: Dataset, device: torch.device, batch_size: 
     n = 0
     pos_p = neg_p = pos_n = neg_n = 0.0
     for batch in data.batches(batch_size, shuffle=False):
-        obs, oracle, mask, action, ret, danger, has = to_device(batch, device)
+        obs, oracle, mask, action, ret, danger, has, q, has_q = to_device(batch, device)
         with torch.autocast(device.type, enabled=device.type == "cuda"):
-            _, policy, value, oracle_value, dl, out = losses(model, obs, oracle, mask, action, ret, danger, has, 0.0, 0.0)
+            _, policy, value, oracle_value, dl, out = losses(
+                model, obs, oracle, mask, action, ret, danger, has, q, has_q, 0.0, 0.0
+            )
         k = len(action)
         n += k
         sums["policy_loss"] += policy.item() * k
@@ -121,6 +148,9 @@ def train(
     eval_every: int = 2000,
     seed: int = 0,
     log=print,
+    init: Optional[str] = None,
+    soft_weight: float = 0.0,
+    soft_temp: float = 1.0,
 ) -> Dict[str, float]:
     dev = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     torch.manual_seed(seed)
@@ -128,8 +158,15 @@ def train(
     data = Dataset(data_dirs, max_samples)
     val = Dataset(val_dirs, max_samples)
     log(f"训练集 {len(data):,} 个样本,验证集 {len(val):,} 个,读入用时 {time.perf_counter() - t0:.0f} 秒")
-    model = RiichiNet(config).to(dev)
+    if init:
+        model = load_model(init, dev).train()
+        config = model.config
+        log(f"从 {init} 接着学")
+    else:
+        model = RiichiNet(config).to(dev)
     log(f"网络 {config.blocks} 个残差块 × {config.channels} 通道,{model.num_parameters():,} 个参数,设备 {dev}")
+    if soft_weight:
+        log(f"软标签蒸馏: 权重 {soft_weight},温度 {soft_temp},有 Q 值的训练样本 {int(data.has_q.sum()):,} 个")
     steps_per_epoch = max(1, len(data) // batch_size)
     total_steps = max(1, int(steps_per_epoch * epochs))
     warmup = min(500, total_steps // 10)
@@ -156,10 +193,11 @@ def train(
     epoch = 0
     while step < total_steps:
         for batch in prefetch(data.batches(batch_size, seed=seed + epoch, drop_last=True)):
-            obs, oracle, mask, action, ret, danger, has = to_device(batch, dev)
+            obs, oracle, mask, action, ret, danger, has, q, has_q = to_device(batch, dev)
             with torch.autocast(dev.type, enabled=use_amp):
                 total, policy, value, oracle_value, dl, _ = losses(
-                    model, obs, oracle, mask, action, ret, danger, has, value_weight, danger_weight
+                    model, obs, oracle, mask, action, ret, danger, has, q, has_q,
+                    value_weight, danger_weight, soft_weight, soft_temp,
                 )
             opt.zero_grad(set_to_none=True)
             scaler.scale(total).backward()
@@ -224,6 +262,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--device", default=None)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--eval-every", type=int, default=2000)
+    parser.add_argument("--init", default=None, help="从这个模型接着学(网络大小跟它走)")
+    parser.add_argument("--soft-weight", type=float, default=0.0, help="Mortal Q 值软标签的权重,0 = 只学它选的那一步")
+    parser.add_argument("--soft-temp", type=float, default=1.0, help="软标签的温度")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
@@ -240,6 +281,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         device=args.device,
         max_samples=args.max_samples,
         eval_every=args.eval_every,
+        init=args.init,
+        soft_weight=args.soft_weight,
+        soft_temp=args.soft_temp,
     )
     print("各类动作的同步率:")
     for k, v in sorted(last.items()):
